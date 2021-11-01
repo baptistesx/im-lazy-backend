@@ -1,0 +1,18 @@
+{
+  "name": "workaway-bot",
+  "version": "1.0.0",
+  "description": "Bot to send meetup request messages to workawayers in the area",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsc && node ./dist/main.js"
+  },
+  "author": "baptistesx",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "puppeteer": "^10.4.0"
+  }
+}
