@@ -4,6 +4,7 @@ const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
+const fs = require("fs");
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -11,13 +12,51 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // parse application/json
 app.use(bodyParser.json());
 
-app.get("/persons", (req, res) => {
-  res.send("test ok");
+app.get("/start", (req, res) => {
+  startBot();
+
+  res.send("Bot started");
 });
 
 app.listen(4999);
+// (async () => {
+//   const headlessON = parseInt(process.env.HEADLESS);
 
-(async () => {
+//   const browser = await puppeteer.launch({ headless: headlessON });
+//   console.log(`-> HEADLESS: ${headlessON ? "ON" : "OFF"}`);
+//   const page = await browser.newPage();
+
+//   await page.goto(process.env.SITE_URL);
+//   console.log(`-> SITE LOADED (${process.env.SITE_URL})`);
+
+//   // Open dropdown menu
+//   await page.click(".dropdown");
+
+//   // Click on "Login as a workawayer"
+//   await page.click('[data-who*="w"]');
+
+//   // Wait for the login popup form appears
+//   // TODO: check if better to use waitForSelector ()
+//   await page.waitForTimeout(2000); //TODO: check?
+//   console.log(`-> LOGIN FORM OPENED`);
+
+//   let pass = process.env.PASSWORD;
+//   let email = process.env.EMAIL;
+
+//   await page.type('[data-login*="user"]', email);
+//   await page.type('[type*="password"]', pass);
+//   console.log(`-> LOGIN FORM FILLED`);
+
+//   await page.keyboard.press("Enter");
+
+//   await page.waitForNavigation();
+
+//   await page.goto(
+//     "https://www.workaway.info/en/message/workawayer?recID=1224975"
+//   );
+// })();
+
+async function startBot() {
   const headlessON = parseInt(process.env.HEADLESS);
 
   const browser = await puppeteer.launch({ headless: headlessON });
@@ -93,9 +132,9 @@ app.listen(4999);
   let membersDataScrapped = [];
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
-  // for (let i = 0; i < finalProfilesHrefsArray.length; i++) { // TODO: to uncomment
+  for (let i = 0; i < finalProfilesHrefsArray.length; i++) { // TODO: to uncomment
   //TODO: to delete next line
-  for (let i = 0; i < 3; i++) {
+  // for (let i = 0; i < 10; i++) {
     let href = finalProfilesHrefsArray[i];
 
     // Navigate to profile page
@@ -139,11 +178,21 @@ app.listen(4999);
         profileHref: href,
         from: country,
         idForMessage: id,
+        messageSent: false,
       });
     }
   }
+
   console.log("-> ALL MEMBERS HAVE BEEN SCRAPPED");
   //TODO: save to file? return to frontend?
+  fs.writeFile(
+    process.env.RESULT_FILE,
+    JSON.stringify({ members: membersDataScrapped }),
+    (err) => {
+      if (err) throw err;
+      console.log(`-> RESULTS SAVE to ${process.env.RESULT_FILE}`);
+    }
+  );
   // console.log(membersDataScrapped);
 
   // Send message to scrapped members
@@ -152,23 +201,37 @@ app.listen(4999);
       process.env.MESSAGE_FORM_URL + membersDataScrapped[index].idForMessage
     );
 
-    // TODO: fix issue: subject text is going in #message if #subject not found
-    await page.type("#subject", process.env.MESSAGE_SUBJECT);
+    if ((await page.$("#conversationcontainer")) === null) {
+      // TODO: fix issue: subject text is going in #message if #subject not found
+      await page.type("#subject", process.env.MESSAGE_SUBJECT);
 
-    if (membersDataScrapped[index].from.includes("France")) {
-      await page.type("#message", process.env.MESSAGE_CONTENT_FR);
-    } else {
-      await page.type("#message", process.env.MESSAGE_CONTENT_EN);
+      if (membersDataScrapped[index].from.includes("France")) {
+        await page.type("#message", process.env.MESSAGE_CONTENT_FR);
+      } else {
+        await page.type("#message", process.env.MESSAGE_CONTENT_EN);
+      }
+
+      // TODO: click on send button
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Enter");
+      membersDataScrapped[index].messageSent = true;
+       await page.waitForTimeout(1000); //TODO: check what's better to do
+      fs.writeFile(
+        process.env.RESULT_FILE,
+        JSON.stringify({ members: membersDataScrapped }),
+        (err) => {
+          if (err) throw err;
+          console.log(`-> RESULTS FILE UPDATES`);
+        }
+      );
     }
-
-    // TODO: click on send button
   }
-  console.log("-> ALL MESSAGES HAVE BEEN SENT");
+  console.log(`-> ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`);
 
   // TODO: to uncomment
   // await browser.close();
   // console.log("-> BROWSER CLOSED");
-})();
+}
 
 function range(start, end) {
   return Array(end - start + 1)
