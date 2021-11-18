@@ -1,61 +1,23 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
-
+const range = require("./utils").range;
+var socketsArray = [];
 let browser;
 let page;
 let membersDataScrapped = [];
 
-// Stepper functions linked to express routes
-
-export const startBrowserAndLogin = async (req, res, next) => {
-  res.send("Opening browser and login...");
-
-  await openBrowser(req.body.headless);
-
-  await openPage();
-
-  await openLoginForm();
-
-  await login(req.body.email, req.body.password);
-
-  await moveToMeetupSection();
+export const initSocket = async (socket) => {
+  socketsArray.push(socket);
+  console.log("new client connected");
+  socket.emit("connection", "➤ CONNECTED TO BACKEND API");
 };
-
-export const setSearchCityParams = async (req, res, next) => {
-  res.send("setting city params...");
-
-  // Set the location
-  await page.type("#autocomplete", process.env.CITY);
-  await page.waitForTimeout(2000); //TODO: check what's better to do
-
-  const [location] = await page.$x(
-    `//a[contains(., '${process.env.CITY_COUNTRY}')]`
-  );
-  if (location) {
-    await location.click();
-  }
-  await page.waitForTimeout(2000); //TODO: check what's better to do
-
-  console.log(`-> CITY SET TO ${process.env.CITY}`);
-
-  // Change radius detection around current location
-  await page.select('select[name="distance"]', process.env.RADIUS_DETECTION);
-  console.log(`-> DETECTION RADIUS SET TO ${process.env.RADIUS_DETECTION}km`);
-};
-
-export const setSearchAdditionnalParams = async (req, res, next) => {
-  res.send("setting additionnal params");
-};
-
-export const setMessages = async (req, res, next) => {};
-
-export const scrapAndMessageMembers = async (req, res, next) => {};
 
 export const startBot = async (req, res, next) => {
+  res.send("Bot started");
+
   await saveParamsToFile(req.body);
 
   await openBrowser(req.body.headless);
-  res.send("Bot started");
 
   await openPage();
 
@@ -82,29 +44,34 @@ export const startBot = async (req, res, next) => {
     req.body.city
   );
 
-  // await closeBrowser(browser);
+  await closeBrowser(browser);
 };
 
 const saveParamsToFile = async (params) => {
-  fs.writeFile(process.env.PARAMS_FILE, JSON.stringify(params), (err) => {
-    if (err) throw err;
-    console.log(`-> PARAMS FILE WRITTEN`);
+  await fs.writeFile(process.env.PARAMS_FILE, JSON.stringify(params), (err) => {
+    if (err) {
+      throw err;
+    }
+
+    console.log(`➤ PARAMS FILE WRITTEN`);
+    socketsArray[0].emit("botLogs", "➤ PARAMS FILE WRITTEN");
   });
 };
 
 const openBrowser = async (isHeadless) => {
-  // const headlessON = parseInt(process.env.HEADLESS);
-
   browser = await puppeteer.launch({ headless: isHeadless });
-  //   console.log(browser)
-  console.log(`-> HEADLESS: ${isHeadless ? "ON" : "OFF"}`);
+
+  console.log(`➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`);
+  socketsArray[0].emit("botLogs", `➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`);
 };
 
 const openPage = async () => {
   page = await browser.newPage();
 
   await page.goto(process.env.SITE_URL);
-  console.log(`-> SITE LOADED (${process.env.SITE_URL})`);
+
+  console.log(`➤ SITE LOADED (${process.env.SITE_URL})`);
+  socketsArray[0].emit("botLogs", `➤ SITE LOADED (${process.env.SITE_URL})`);
 };
 
 const openLoginForm = async () => {
@@ -117,36 +84,40 @@ const openLoginForm = async () => {
   // Wait for the login popup form appears
   // TODO: check if better to use waitForSelector ()
   await page.waitForTimeout(2000); //TODO: check?
-  console.log(`-> LOGIN FORM OPENED`);
+
+  console.log(`➤ LOGIN FORM OPENED`);
+  socketsArray[0].emit("botLogs", `➤ LOGIN FORM OPENED`);
 };
 
 const login = async (email, password) => {
-  // let pass = process.env.PASSWORD;
-  // let email = process.env.EMAIL;
-
   await page.type('[data-login*="user"]', email);
   await page.type('[type*="password"]', password);
-  console.log(`-> LOGIN FORM FILLED`);
+
+  console.log(`➤ LOGIN FORM FILLED`);
+  socketsArray[0].emit("botLogs", `➤ LOGIN FORM FILLED`);
 
   await page.keyboard.press("Enter");
 
   await page.waitForNavigation();
 
-  console.log(`-> WELL CONNECTED WITH ${process.env.EMAIL}`);
+  console.log(`➤ WELL CONNECTED WITH ${process.env.EMAIL}`);
+  socketsArray[0].emit("botLogs", `➤ WELL CONNECTED WITH ${process.env.EMAIL}`);
 };
 
 const moveToMeetupSection = async () => {
   // Navigate to the meetup section
   await page.goto(process.env.MEETUP_SECTION_URL);
-  console.log("-> MOVED TO MEETUP SECTION");
+
+  console.log("➤ MOVED TO MEETUP SECTION");
+  socketsArray[0].emit("botLogs", "➤ MOVED TO MEETUP SECTION");
 
   await page.waitForTimeout(4000); //TODO: check what's better to do
 };
 
 const setSearchParams = async (city, detectionRadius) => {
   // Set the location
-  // await page.type("#autocomplete", process.env.CITY);
   await page.type("#autocomplete", city);
+
   await page.waitForTimeout(2000); //TODO: check what's better to do
 
   const [location] = await page.$x(
@@ -157,11 +128,17 @@ const setSearchParams = async (city, detectionRadius) => {
   }
   await page.waitForTimeout(2000); //TODO: check what's better to do
 
-  console.log(`-> CITY SET TO ${city}`);
+  console.log(`➤ CITY SET TO ${city}`);
+  socketsArray[0].emit("botLogs", `➤ CITY SET TO ${city}`);
 
   // Change radius detection around current location
   await page.select('select[name="distance"]', detectionRadius.toString());
-  console.log(`-> DETECTION RADIUS SET TO ${detectionRadius}km`);
+
+  console.log(`➤ DETECTION RADIUS SET TO ${detectionRadius}km`);
+  socketsArray[0].emit(
+    "botLogs",
+    `➤ DETECTION RADIUS SET TO ${detectionRadius}km`
+  );
 };
 
 const scrapMembers = async (page, minAge, maxAge, city) => {
@@ -176,19 +153,25 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
   // Using an array again
   const finalProfilesHrefsArray = [...profilesHrefsWithoutDupplicates];
 
-  // const ageMin = parseInt(minAge);
-  // const ageMax = parseInt(maxAge);
   const ageRange = range(parseInt(minAge), parseInt(maxAge));
+
+  console.log(`➤ TOTAL MEMBERS IN THE AREA: ${finalProfilesHrefsArray.length}`);
+  socketsArray[0].emit(
+    "botLogs",
+    `➤ TOTAL MEMBERS IN THE AREA: ${finalProfilesHrefsArray.length}`
+  );
+
+  console.log(`➤ START SCRAPPING...`);
+  socketsArray[0].emit("botLogs", `➤ START SCRAPPING...`);
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
-    // TODO: to uncomment
-    //TODO: to delete next line
-    // for (let i = 0; i < 10; i++) {
     let href = finalProfilesHrefsArray[i];
 
     // Navigate to profile page
     await page.goto(href);
+
+    // Extract the members age
     const sections = await page.$$eval(".media-body", (nodes) => {
       return nodes.map((node) => {
         const h2 = node.querySelector("h2");
@@ -198,12 +181,11 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
       });
     });
 
-    // Extract the members age
     const age = sections.find((e) => e !== "");
 
     // Check if members age is in the valid range, if not do nothing
     if (ageRange.includes(age)) {
-      // Extract members id
+      // Extract members id. (Usefull to reach the message form url)
       const id = await page.evaluate(
         () =>
           document
@@ -235,21 +217,36 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
         idForMessage: id,
         messageSent: false,
       });
+
+      console.log(`➤ #${i} SCRAPPED`);
+      socketsArray[0].emit(
+        "botLogsMembersScrapped",
+        `➤ #${i} SCRAPPED`
+      );
     }
   }
 
-  console.log("-> ALL MEMBERS HAVE BEEN SCRAPPED");
-  //TODO: save to file? return to frontend?
+  console.log("➤ ALL MEMBERS HAVE BEEN SCRAPPED");
+  socketsArray[0].emit("botLogs", "➤ ALL MEMBERS HAVE BEEN SCRAPPED");
+
+  console.log(`➤ ${membersDataScrapped.length} MEMBERS IN THE AGE RANGE`);
+  socketsArray[0].emit(
+    "botLogs",
+    `➤ ${membersDataScrapped.length} MEMBERS IN THE AGE RANGE`
+  );
+
+  //TODO: add option to download this file from the frontend?
   const resultFile = `dist/${city}_members.json`;
-  fs.writeFile(
+
+  await fs.writeFile(
     resultFile,
     JSON.stringify({ members: membersDataScrapped }),
     (err) => {
       if (err) throw err;
-      console.log(`-> RESULTS SAVE to ${resultFile}`);
+      console.log(`➤ RESULTS SAVE to ${resultFile}`);
+      socketsArray[0].emit("botLogs", `➤ RESULTS SAVE to ${resultFile}`);
     }
   );
-  // console.log(membersDataScrapped);
 };
 
 const sendMessageToMembers = async (
@@ -259,6 +256,9 @@ const sendMessageToMembers = async (
   frenchMessage,
   city
 ) => {
+  console.log("➤ START SENDING MESSAGES");
+  socketsArray[0].emit("botLogs", "➤ START SENDING MESSAGES");
+
   // Send message to scrapped members
   for (var index in membersDataScrapped) {
     await page.goto(
@@ -266,7 +266,6 @@ const sendMessageToMembers = async (
     );
 
     if ((await page.$("#conversationcontainer")) === null) {
-      // TODO: fix issue: subject text is going in #message if #subject not found
       await page.type("#subject", messageSubject);
 
       if (membersDataScrapped[index].from.includes("France")) {
@@ -275,34 +274,41 @@ const sendMessageToMembers = async (
         await page.type("#message", englishMessage);
       }
 
-      // TODO: click on send button
       await page.keyboard.press("Tab");
-      await page.keyboard.press("Enter");
+
+      // TODO: comment next line when testing to not send real messages
+      // await page.keyboard.press("Enter");
       membersDataScrapped[index].messageSent = true;
+
       await page.waitForTimeout(1000); //TODO: check what's better to do
 
       const resultFile = `dist/${city}_members.json`;
 
-      fs.writeFile(
+      await fs.writeFile(
         resultFile,
         JSON.stringify({ members: membersDataScrapped }),
         (err) => {
           if (err) throw err;
-          console.log(`-> RESULTS FILE UPDATES`);
+          console.log(`➤ ${index}/${membersDataScrapped.length} MESSAGES SENT`);
+          socketsArray[0].emit(
+            "botLogsMessageSent",
+            `➤ ${index}/${membersDataScrapped.length} MESSAGES SENT`
+          );
         }
       );
     }
   }
-  console.log(`-> ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`);
+
+  console.log(`➤ ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`);
+  socketsArray[0].emit(
+    "botLogs",
+    `➤ ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`
+  );
 };
 
 const closeBrowser = async (browser) => {
   await browser.close();
-  console.log("-> BROWSER CLOSED");
-};
 
-function range(start, end) {
-  return Array(end - start + 1)
-    .fill(end - start + 1)
-    .map((_, idx) => start + idx);
-}
+  console.log("➤ BROWSER CLOSED");
+  socketsArray[0].emit("botLogs", "➤ BROWSER CLOSED");
+};
