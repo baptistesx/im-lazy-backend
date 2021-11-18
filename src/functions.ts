@@ -219,10 +219,7 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
       });
 
       console.log(`➤ #${i} SCRAPPED`);
-      socketsArray[0].emit(
-        "botLogsMembersScrapped",
-        `➤ #${i} SCRAPPED`
-      );
+      socketsArray[0].emit("botLogsMembersScrapped", `➤ #${i} SCRAPPED`);
     }
   }
 
@@ -289,10 +286,13 @@ const sendMessageToMembers = async (
         JSON.stringify({ members: membersDataScrapped }),
         (err) => {
           if (err) throw err;
-          console.log(`➤ ${index}/${membersDataScrapped.length} MESSAGES SENT`);
+          const indexWithOffset = parseInt(index) + 1;
+          console.log(
+            `➤ ${indexWithOffset}/${membersDataScrapped.length} MESSAGES SENT`
+          );
           socketsArray[0].emit(
             "botLogsMessageSent",
-            `➤ ${index}/${membersDataScrapped.length} MESSAGES SENT`
+            `➤ ${indexWithOffset}/${membersDataScrapped.length} MESSAGES SENT`
           );
         }
       );
