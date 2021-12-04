@@ -26,6 +26,6 @@ app.use(bodyParser.json());
 app.post("/startBot", startBot);
 
 // Init socket
-io.sockets.on("connection", initSocket)
+io.sockets.on("connection", initSocket);
 
 server.listen(4999);

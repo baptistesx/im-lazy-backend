@@ -1,15 +1,34 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const range = require("./utils").range;
-var socketsArray = [];
+var format = require("date-fns/format");
 let browser;
 let page;
 let membersDataScrapped = [];
+let io = require("./main").io;
+let logs = [];
+const roomId = "1234";
+
+const getCurrentDateTime = () => format(new Date(), "d/M/Y, HH:mm:ss");
 
 export const initSocket = async (socket) => {
-  socketsArray.push(socket);
-  console.log("new client connected");
-  socket.emit("connection", "➤ CONNECTED TO BACKEND API");
+  socket.join(roomId);
+
+  console.log(
+    `${socket.id} connected and joined room ${roomId} ${getCurrentDateTime()}`
+  );
+
+  // Join a conversation
+  socket.emit(
+    "connection",
+    `${getCurrentDateTime()} ➤ CONNECTED TO BACKEND API`
+  );
+  socket.emit("botLogs", logs);
+
+  // Leave the room if the user closes the socket
+  socket.on("disconnect", () => {
+    socket.leave(roomId);
+  });
 };
 
 export const startBot = async (req, res, next) => {
@@ -47,22 +66,28 @@ export const startBot = async (req, res, next) => {
   await closeBrowser(browser);
 };
 
+const logAndEmitToRoom = (logString) => {
+  logs.push(logString);
+  console.log(logString);
+  io.to(roomId).emit("botLogs", logString);
+};
+
 const saveParamsToFile = async (params) => {
   await fs.writeFile(process.env.PARAMS_FILE, JSON.stringify(params), (err) => {
     if (err) {
       throw err;
     }
 
-    console.log(`➤ PARAMS FILE WRITTEN`);
-    socketsArray[0].emit("botLogs", "➤ PARAMS FILE WRITTEN");
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ PARAMS FILE WRITTEN`);
   });
 };
 
 const openBrowser = async (isHeadless) => {
   browser = await puppeteer.launch({ headless: isHeadless });
 
-  console.log(`➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`);
-  socketsArray[0].emit("botLogs", `➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`);
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`
+  );
 };
 
 const openPage = async () => {
@@ -70,8 +95,9 @@ const openPage = async () => {
 
   await page.goto(process.env.SITE_URL);
 
-  console.log(`➤ SITE LOADED (${process.env.SITE_URL})`);
-  socketsArray[0].emit("botLogs", `➤ SITE LOADED (${process.env.SITE_URL})`);
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ SITE LOADED (${process.env.SITE_URL})`
+  );
 };
 
 const openLoginForm = async () => {
@@ -85,31 +111,29 @@ const openLoginForm = async () => {
   // TODO: check if better to use waitForSelector ()
   await page.waitForTimeout(2000); //TODO: check?
 
-  console.log(`➤ LOGIN FORM OPENED`);
-  socketsArray[0].emit("botLogs", `➤ LOGIN FORM OPENED`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ LOGIN FORM OPENED`);
 };
 
 const login = async (email, password) => {
   await page.type('[data-login*="user"]', email);
   await page.type('[type*="password"]', password);
 
-  console.log(`➤ LOGIN FORM FILLED`);
-  socketsArray[0].emit("botLogs", `➤ LOGIN FORM FILLED`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ LOGIN FORM FILLED`);
 
   await page.keyboard.press("Enter");
 
   await page.waitForNavigation();
 
-  console.log(`➤ WELL CONNECTED WITH ${process.env.EMAIL}`);
-  socketsArray[0].emit("botLogs", `➤ WELL CONNECTED WITH ${process.env.EMAIL}`);
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${process.env.EMAIL}`
+  );
 };
 
 const moveToMeetupSection = async () => {
   // Navigate to the meetup section
   await page.goto(process.env.MEETUP_SECTION_URL);
 
-  console.log("➤ MOVED TO MEETUP SECTION");
-  socketsArray[0].emit("botLogs", "➤ MOVED TO MEETUP SECTION");
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`);
 
   await page.waitForTimeout(4000); //TODO: check what's better to do
 };
@@ -128,16 +152,13 @@ const setSearchParams = async (city, detectionRadius) => {
   }
   await page.waitForTimeout(2000); //TODO: check what's better to do
 
-  console.log(`➤ CITY SET TO ${city}`);
-  socketsArray[0].emit("botLogs", `➤ CITY SET TO ${city}`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ CITY SET TO ${city}`);
 
   // Change radius detection around current location
   await page.select('select[name="distance"]', detectionRadius.toString());
 
-  console.log(`➤ DETECTION RADIUS SET TO ${detectionRadius}km`);
-  socketsArray[0].emit(
-    "botLogs",
-    `➤ DETECTION RADIUS SET TO ${detectionRadius}km`
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius}km`
   );
 };
 
@@ -155,14 +176,13 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
 
   const ageRange = range(parseInt(minAge), parseInt(maxAge));
 
-  console.log(`➤ TOTAL MEMBERS IN THE AREA: ${finalProfilesHrefsArray.length}`);
-  socketsArray[0].emit(
-    "botLogs",
-    `➤ TOTAL MEMBERS IN THE AREA: ${finalProfilesHrefsArray.length}`
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ TOTAL MEMBERS IN THE AREA: ${
+      finalProfilesHrefsArray.length
+    }`
   );
 
-  console.log(`➤ START SCRAPPING...`);
-  socketsArray[0].emit("botLogs", `➤ START SCRAPPING...`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SCRAPPING...`);
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
@@ -218,18 +238,16 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
         messageSent: false,
       });
 
-      console.log(`➤ #${i} SCRAPPED`);
-      socketsArray[0].emit("botLogsMembersScrapped", `➤ #${i} SCRAPPED`);
+      logAndEmitToRoom(`${getCurrentDateTime()} ➤ #${i} SCRAPPED`);
     }
   }
 
-  console.log("➤ ALL MEMBERS HAVE BEEN SCRAPPED");
-  socketsArray[0].emit("botLogs", "➤ ALL MEMBERS HAVE BEEN SCRAPPED");
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ ALL MEMBERS HAVE BEEN SCRAPPED`);
 
-  console.log(`➤ ${membersDataScrapped.length} MEMBERS IN THE AGE RANGE`);
-  socketsArray[0].emit(
-    "botLogs",
-    `➤ ${membersDataScrapped.length} MEMBERS IN THE AGE RANGE`
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ ${
+      membersDataScrapped.length
+    } MEMBERS IN THE AGE RANGE`
   );
 
   //TODO: add option to download this file from the frontend?
@@ -240,8 +258,10 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     JSON.stringify({ members: membersDataScrapped }),
     (err) => {
       if (err) throw err;
-      console.log(`➤ RESULTS SAVE to ${resultFile}`);
-      socketsArray[0].emit("botLogs", `➤ RESULTS SAVE to ${resultFile}`);
+
+      logAndEmitToRoom(
+        `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile}`
+      );
     }
   );
 };
@@ -253,8 +273,7 @@ const sendMessageToMembers = async (
   frenchMessage,
   city
 ) => {
-  console.log("➤ START SENDING MESSAGES");
-  socketsArray[0].emit("botLogs", "➤ START SENDING MESSAGES");
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SENDING MESSAGES`);
 
   // Send message to scrapped members
   for (var index in membersDataScrapped) {
@@ -287,28 +306,28 @@ const sendMessageToMembers = async (
         (err) => {
           if (err) throw err;
           const indexWithOffset = parseInt(index) + 1;
-          console.log(
-            `➤ ${indexWithOffset}/${membersDataScrapped.length} MESSAGES SENT`
-          );
-          socketsArray[0].emit(
-            "botLogsMessageSent",
-            `➤ ${indexWithOffset}/${membersDataScrapped.length} MESSAGES SENT`
+
+          // TODO: check issue with index and message, no index 1-2/membersDataScrapped.length
+          // and membersDataScrapped.length/membersDataScrapped.length displayed twice
+          logAndEmitToRoom(
+            `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
+              membersDataScrapped.length
+            } MESSAGES SENT`
           );
         }
       );
     }
   }
 
-  console.log(`➤ ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`);
-  socketsArray[0].emit(
-    "botLogs",
-    `➤ ${membersDataScrapped.length} MESSAGES HAVE BEEN SENT`
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ ${
+      membersDataScrapped.length
+    } MESSAGES HAVE BEEN SENT`
   );
 };
 
 const closeBrowser = async (browser) => {
   await browser.close();
 
-  console.log("➤ BROWSER CLOSED");
-  socketsArray[0].emit("botLogs", "➤ BROWSER CLOSED");
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BROWSER CLOSED`);
 };
