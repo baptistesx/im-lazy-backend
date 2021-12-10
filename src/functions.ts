@@ -8,6 +8,7 @@ let membersDataScrapped = [];
 let io = require("./main").io;
 let logs = [];
 const roomId = "1234";
+let shouldStopBot = false;
 
 const getCurrentDateTime = () => format(new Date(), "d/M/Y, HH:mm:ss");
 
@@ -38,30 +39,76 @@ export const startBot = async (req, res, next) => {
 
   await openBrowser(req.body.headless);
 
+  if (shouldStopBot) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+
+    return;
+  }
+
   await openPage();
+
+  if (shouldStopBot) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+
+    return;
+  }
 
   await openLoginForm();
 
   await login(req.body.email, req.body.password);
 
+  if (shouldStopBot) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+
+    return;
+  }
+
   await moveToMeetupSection();
 
   await setSearchParams(req.body.city, req.body.detectionRadius);
 
-  await scrapMembers(
+  if (shouldStopBot) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+
+    return;
+  }
+
+  let shouldStop = await scrapMembers(
     page,
     req.body.minimumAge,
     req.body.maximumAge,
     req.body.city
   );
+  if (shouldStop) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
 
-  await sendMessageToMembers(
+    return;
+  }
+
+  shouldStop = await sendMessageToMembers(
     page,
     req.body.messageSubject,
     req.body.englishMessage,
     req.body.frenchMessage,
-    req.body.city
+    req.body.city,
+    req.body.developmentMode
   );
+  if (shouldStop) {
+    shouldStopBot = false;
+    await closeBrowser(browser);
+    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+    return;
+  }
 
   await closeBrowser(browser);
 };
@@ -186,6 +233,9 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
+    if (shouldStopBot) {
+      return true;
+    }
     let href = finalProfilesHrefsArray[i];
 
     // Navigate to profile page
@@ -271,12 +321,17 @@ const sendMessageToMembers = async (
   messageSubject,
   englishMessage,
   frenchMessage,
-  city
+  city,
+  developmentMode
 ) => {
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SENDING MESSAGES`);
 
   // Send message to scrapped members
   for (var index in membersDataScrapped) {
+    if (shouldStopBot) {
+      return true;
+    }
+
     await page.goto(
       process.env.MESSAGE_FORM_URL + membersDataScrapped[index].idForMessage
     );
@@ -292,8 +347,10 @@ const sendMessageToMembers = async (
 
       await page.keyboard.press("Tab");
 
-      // TODO: comment next line when testing to not send real messages
-      // await page.keyboard.press("Enter");
+      if (!developmentMode) {
+        await page.keyboard.press("Enter");
+      }
+
       membersDataScrapped[index].messageSent = true;
 
       await page.waitForTimeout(1000); //TODO: check what's better to do
@@ -330,4 +387,20 @@ const closeBrowser = async (browser) => {
   await browser.close();
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ BROWSER CLOSED`);
+};
+
+export const clearLogs = async (req, res, next) => {
+  console.log(`${getCurrentDateTime()} ➤ LOGS CLEARED`);
+
+  logs = [];
+
+  res.status(200).send("ok");
+};
+
+export const stopBot = async (req, res, next) => {
+  shouldStopBot = true;
+
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT STOPPING...`);
+
+  res.status(200).send("ok");
 };
