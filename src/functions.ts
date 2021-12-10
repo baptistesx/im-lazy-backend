@@ -38,7 +38,7 @@ export const startBot = async (req, res, next) => {
 
   await saveParamsToFile(req.body);
 
-  await openBrowser(req.body.headless);
+  await openBrowser(req.body.headless,req.body.developmentMode);
 
   if (shouldStopBot) {
     shouldStopBot = false;
@@ -130,11 +130,15 @@ const saveParamsToFile = async (params) => {
   });
 };
 
-const openBrowser = async (isHeadless) => {
+const openBrowser = async (isHeadless, isDevelopmentMode) => {
   browser = await puppeteer.launch({ headless: isHeadless });
 
   logAndEmitToRoom(
     `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`
+  );
+
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${isDevelopmentMode ? "ON" : "OFF"}`
   );
 };
 
