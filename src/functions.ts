@@ -9,6 +9,7 @@ let io = require("./main").io;
 let logs = [];
 const roomId = "1234";
 let shouldStopBot = false;
+let citySelected = "";
 
 const getCurrentDateTime = () => format(new Date(), "d/M/Y, HH:mm:ss");
 
@@ -191,15 +192,32 @@ const setSearchParams = async (city, detectionRadius) => {
 
   await page.waitForTimeout(2000); //TODO: check what's better to do
 
-  const [location] = await page.$x(
-    `//a[contains(., '${process.env.CITY_COUNTRY}')]`
+  const cities = await page.$$eval(".dropdown-item", (nodes) =>
+    nodes.map((node) => node.textContent)
   );
+
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ AVAILABLE CITIES: ${cities.join()}`
+  );
+
+  io.to(roomId).emit("citiesList", cities);
+
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ WAITING FOR THE CHOICE OF THE CITY`
+  );
+
+  while (citySelected === "") {
+    await sleep(500);
+  }
+
+  const [location] = await page.$x(`//a[contains(., '${citySelected}')]`);
+
   if (location) {
     await location.click();
   }
   await page.waitForTimeout(2000); //TODO: check what's better to do
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ CITY SET TO ${city}`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ CITY SET TO ${citySelected}`);
 
   // Change radius detection around current location
   await page.select('select[name="distance"]', detectionRadius.toString());
@@ -208,7 +226,9 @@ const setSearchParams = async (city, detectionRadius) => {
     `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius}km`
   );
 };
-
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 const scrapMembers = async (page, minAge, maxAge, city) => {
   // Get all members profile page url (present on the page)
   // TODO: check other page if pagination exists
@@ -403,4 +423,10 @@ export const stopBot = async (req, res, next) => {
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT STOPPING...`);
 
   res.status(200).send("ok");
+};
+
+export const setCity = async (req, res, next) => {
+  res.send("ok");
+
+  citySelected = req.body.city;
 };

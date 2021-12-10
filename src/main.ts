@@ -14,6 +14,7 @@ var cors = require("cors");
 const startBot = require("./functions").startBot;
 const clearLogs = require("./functions").clearLogs;
 const stopBot = require("./functions").stopBot;
+const setCity = require("./functions").setCity;
 const initSocket = require("./functions").initSocket;
 
 // parse application/x-www-form-urlencoded
@@ -30,6 +31,8 @@ app.post("/startBot", startBot);
 app.get("/clearLogs", clearLogs);
 
 app.get("/stopBot", stopBot);
+
+app.post("/setCity", setCity);
 
 // Init socket
 io.sockets.on("connection", initSocket);
