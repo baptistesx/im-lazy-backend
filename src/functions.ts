@@ -38,7 +38,7 @@ export const startBot = async (req, res, next) => {
 
   await saveParamsToFile(req.body);
 
-  await openBrowser(req.body.headless,req.body.developmentMode);
+  await openBrowser(req.body.headless, req.body.developmentMode);
 
   if (shouldStopBot) {
     shouldStopBot = false;
@@ -112,6 +112,9 @@ export const startBot = async (req, res, next) => {
   }
 
   await closeBrowser(browser);
+
+  //TODO: announce to the client the work is done then he can set isRunning to false
+  // io.to(roomId).emit("done", `${getCurrentDateTime()} ➤ WORK DONE`);
 };
 
 const logAndEmitToRoom = (logString) => {
@@ -138,7 +141,9 @@ const openBrowser = async (isHeadless, isDevelopmentMode) => {
   );
 
   logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${isDevelopmentMode ? "ON" : "OFF"}`
+    `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${
+      isDevelopmentMode ? "ON" : "OFF"
+    }`
   );
 };
 
@@ -433,4 +438,39 @@ export const setCity = async (req, res, next) => {
   res.send("ok");
 
   citySelected = req.body.city;
+};
+
+// TODO: logs
+export const getFilesName = (req, res, next) => {
+  const filesName = fs
+    .readdirSync("./dist")
+    .filter((file) => file.includes("json"));
+
+  res.send(filesName);
+};
+
+export const deleteFile = (req, res, next) => {
+  try {
+    fs.unlinkSync(`./dist/${req.query.name}`);
+
+    res.send("ok");
+  } catch (err) {
+    res.send("ko");
+    console.error(err);
+  }
+};
+
+export const getFile = (req, res, next) => {
+  console.log("get file", req.query.name);
+  var filePath = `./dist/${req.query.name}`;
+
+  fs.readFile(filePath, "utf8", (err, data) => {
+    if (err) {
+      res.send("ko");
+      console.error(err);
+      return;
+    }
+    res.json(data);
+  });
+
 };
