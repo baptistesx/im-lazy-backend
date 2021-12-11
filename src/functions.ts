@@ -117,10 +117,17 @@ export const startBot = async (req, res, next) => {
   // io.to(roomId).emit("done", `${getCurrentDateTime()} ➤ WORK DONE`);
 };
 
-const logAndEmitToRoom = (logString) => {
-  logs.push(logString);
+const logAndEmitToRoom = (logString, isSendingMessagesSentCounter = false) => {
   console.log(logString);
-  io.to(roomId).emit("botLogs", logString);
+  if (isSendingMessagesSentCounter) {
+    logs = [...logs.slice(0, -1), logString];
+
+    io.to(roomId).emit("botLogsMessageSent", logString);
+  } else {
+    logs.push(logString);
+
+    io.to(roomId).emit("botLogs", logString);
+  }
 };
 
 const saveParamsToFile = async (params) => {
@@ -398,7 +405,8 @@ const sendMessageToMembers = async (
           logAndEmitToRoom(
             `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
               membersDataScrapped.length
-            } MESSAGES SENT`
+            } MESSAGES SENT`,
+            true
           );
         }
       );
@@ -472,5 +480,4 @@ export const getFile = (req, res, next) => {
     }
     res.json(data);
   });
-
 };
