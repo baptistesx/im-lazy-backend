@@ -44,4 +44,4 @@ app.delete("/file", deleteFile);
 // Init socket
 io.sockets.on("connection", initSocket);
 
-server.listen(4999);
+server.listen(process.env.PORT);
