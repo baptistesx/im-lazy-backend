@@ -173,7 +173,7 @@ const openLoginForm = async () => {
 
   // Wait for the login popup form appears
   // TODO: check if better to use waitForSelector ()
-  await page.waitForTimeout(2000); //TODO: check?
+  await page.waitForTimeout(2000);
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ LOGIN FORM OPENED`);
 };
@@ -206,7 +206,7 @@ const setSearchParams = async (city, detectionRadius) => {
   // Set the location
   await page.type("#autocomplete", city);
 
-  await page.waitForTimeout(2000); //TODO: check what's better to do
+  await page.waitForTimeout(2000);
 
   const cities = await page.$$eval(".dropdown-item", (nodes) =>
     nodes.map((node) => node.textContent)
@@ -231,7 +231,7 @@ const setSearchParams = async (city, detectionRadius) => {
   if (location) {
     await location.click();
   }
-  await page.waitForTimeout(2000); //TODO: check what's better to do
+  await page.waitForTimeout(2000);
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ CITY SET TO ${citySelected}`);
 
@@ -336,7 +336,6 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     } MEMBERS IN THE AGE RANGE`
   );
 
-  //TODO: add option to download this file from the frontend?
   const resultFile = `dist/${city}_members.json`;
 
   await fs.writeFile(
@@ -389,7 +388,7 @@ const sendMessageToMembers = async (
 
       membersDataScrapped[index].messageSent = true;
 
-      await page.waitForTimeout(1000); //TODO: check what's better to do
+      await page.waitForTimeout(1000);
 
       const resultFile = `dist/${city}_members.json`;
 
