@@ -141,7 +141,10 @@ const saveParamsToFile = async (params) => {
 };
 
 const openBrowser = async (isHeadless, isDevelopmentMode) => {
-  browser = await puppeteer.launch({ headless: isHeadless });
+  browser = await puppeteer.launch({
+    headless: isHeadless,
+    args: ["--no-sandbox"],
+  });
 
   logAndEmitToRoom(
     `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`
