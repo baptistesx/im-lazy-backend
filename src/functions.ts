@@ -34,6 +34,8 @@ export const initSocket = async (socket) => {
 };
 
 export const startBot = async (req, res, next) => {
+  citySelected = "";
+
   res.send("Bot started");
 
   await saveParamsToFile(req.body);
