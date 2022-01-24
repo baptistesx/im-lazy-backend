@@ -194,8 +194,10 @@ const login = async (email, password) => {
   await page.waitForNavigation();
 
   logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${process.env.EMAIL}`
+    `${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`
   );
+
+  await page.waitForNavigation();
 };
 
 const moveToMeetupSection = async () => {
@@ -203,6 +205,7 @@ const moveToMeetupSection = async () => {
   await page.goto(process.env.MEETUP_SECTION_URL);
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`);
+  await page.waitForNavigation();
 
   await page.waitForTimeout(4000); //TODO: check what's better to do
 };
