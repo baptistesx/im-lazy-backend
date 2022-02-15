@@ -13,17 +13,17 @@ var cors = require("cors");
 // Functions
 const startBot = require("./functions/workaway-bot-functions").startBot;
 const clearLogs = require("./functions/workaway-bot-functions").clearLogs;
-const stopBot = require("./functions/functions/workaway-bot-functions").stopBot;
-const setCity = require("./workaway-bot-functions").setCity;
+const stopBot = require("./functions/workaway-bot-functions").stopBot;
+const setCity = require("./functions/workaway-bot-functions").setCity;
 const getFilesName = require("./functions/workaway-bot-functions").getFilesName;
 const getFile = require("./functions/workaway-bot-functions").getFile;
-const deleteFile = require("./wfunctions/orkaway-bot-functions").deleteFile;
+const deleteFile = require("./functions/workaway-bot-functions").deleteFile;
 const initSocket = require("./functions/workaway-bot-functions").initSocket;
-const signup = require("./user-functions").signup;
-const signin = require("./user-functions").signin;
-const getUsers = require("./user-functions").getUsers;
-const toggleAdminRights = require("./user-functions").toggleAdminRights;
-const deleteUserById = require("./user-functions").deleteUserById;
+const signup = require("./functions/user-functions").signup;
+const signin = require("./functions/user-functions").signin;
+const getUsers = require("./functions/user-functions").getUsers;
+const toggleAdminRights = require("./functions/user-functions").toggleAdminRights;
+const deleteUserById = require("./functions/user-functions").deleteUserById;
 const isAdmin = require("./middleware/auth").isAdmin;
 const isAuthenticated = require("./middleware/auth").isAuthenticated;
 
