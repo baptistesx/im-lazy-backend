@@ -1,11 +1,11 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
-const range = require("./utils").range;
+const range = require("../utils/utils").range;
 var format = require("date-fns/format");
 let browser;
 let page;
 let membersDataScrapped = [];
-let io = require("./main").io;
+let io = require("../main").io;
 let logs = [];
 const roomId = "1234";
 let shouldStopBot = false;
@@ -193,9 +193,7 @@ const login = async (email, password) => {
 
   await page.waitForNavigation();
 
-  logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`
-  );
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`);
 
   await page.waitForNavigation();
 };
