@@ -1,3 +1,4 @@
+// allow to use .env variables
 require("dotenv").config();
 
 var express = require("express");
@@ -27,7 +28,7 @@ const deleteUserById = require("./functions/user-functions").deleteUserById;
 const isAdmin = require("./middleware/auth").isAdmin;
 const isAuthenticated = require("./middleware/auth").isAuthenticated;
 
-// parse application/x-www-form-urlencoded
+// Parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(cors());

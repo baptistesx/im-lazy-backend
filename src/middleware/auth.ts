@@ -1,5 +1,8 @@
+// To use authorization tokens
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY;
+
+// For postgresql client
 const { Client } = require("pg");
 
 const client = new Client({
@@ -9,12 +12,16 @@ const client = new Client({
   password: "password",
   port: 5432,
 });
+
 client.connect();
+//TODO: is client.end(); necessary?
 
 export const isAuthenticated = (req, res, next) => {
   try {
     const token = req.headers.authorization;
+
     jwt.verify(token, SECRET_KEY);
+
     next();
   } catch {
     res.status(401).json({
@@ -26,7 +33,9 @@ export const isAuthenticated = (req, res, next) => {
 export const isAdmin = (req, res, next) => {
   try {
     const token = req.headers.authorization;
+
     const decodedToken = jwt.verify(token, SECRET_KEY);
+
     const id = decodedToken.id;
 
     const query = `SELECT is_admin FROM users WHERE id = '${id}';`;

@@ -1,9 +1,16 @@
+// To generate uuids
 const { v4: uuidV4 } = require("uuid");
-const { Client } = require("pg");
+
+// To encrypt and verify passwords
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
+
+// To use authorization tokens
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY;
+
+// For postgresql client
+const { Client } = require("pg");
 
 const client = new Client({
   user: "baptiste",
@@ -27,7 +34,7 @@ export const signup = (req, res, next) => {
     const query = `
 INSERT INTO users (email, id, password)
 VALUES ('${credentials.email}', '${newId}', '${hash}');
-SELECT id, email, is_admin, is_premium, is_new_user, is_email_verified FROM users WHERE id = '${newId}';
+SELECT * FROM users WHERE id = '${newId}';
 `;
     client.query(query, (err, result) => {
       if (err) {
@@ -45,11 +52,15 @@ SELECT id, email, is_admin, is_premium, is_new_user, is_email_verified FROM user
           SECRET_KEY
         );
 
+        const newUser = { ...result[1].rows[0] };
+        // Remove password property
+        delete newUser.password;
+
         res.send({
           status: "OK",
           message: "User well created",
           token: token,
-          user: result[1].rows[0],
+          user: newUser,
         });
 
         // Once signedup, the user is not new anymore
@@ -65,7 +76,7 @@ export const signin = (req, res, next) => {
   const credentials = req.body;
 
   const query = `
-  SELECT id, password, email, is_admin, is_premium, is_new_user, is_email_verified FROM users WHERE email='${credentials.email}'
+  SELECT * FROM users WHERE email='${credentials.email}'
 `;
 
   client.query(query, (err, result) => {

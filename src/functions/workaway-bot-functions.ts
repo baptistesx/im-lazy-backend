@@ -1,13 +1,19 @@
+// To navigate in browser and automation
 const puppeteer = require("puppeteer");
+
+// Filesystem module
 const fs = require("fs");
+
+let io = require("../main").io;
+const roomId = "1234";
+
 const range = require("../utils/utils").range;
 var format = require("date-fns/format");
+
 let browser;
 let page;
 let membersDataScrapped = [];
-let io = require("../main").io;
 let logs = [];
-const roomId = "1234";
 let shouldStopBot = false;
 let citySelected = "";
 
