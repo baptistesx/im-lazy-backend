@@ -124,19 +124,51 @@ export const signin = (req, res, next) => {
 };
 
 export const getUsers = (req, res, next) => {
-  const credentials = req.body;
+  const currentUserId = req.currentUserId;
 
-  const query = `SELECT id, email, is_admin, is_premium, is_new_user, is_email_verified FROM users`;
+  const query = `
+  SELECT is_super_admin, is_admin, company FROM users WHERE id='${currentUserId}'
+`;
 
   client.query(query, (err, result) => {
     if (err) {
-      console.error(err);
-      res.status(403).send({
-        status: "KO",
-        message: "Error while getting users",
-      });
     } else {
-      res.send(result.rows);
+      const currentUser = result.rows[0];
+      console.log(currentUser);
+
+      if (currentUser.is_admin && currentUser.is_super_admin) {
+        const queryAllMembers = `SELECT id, email, is_admin, is_premium, is_new_user, is_email_verified FROM users`;
+
+        client.query(queryAllMembers, (err, result) => {
+          if (err) {
+            console.error(err);
+            res.status(403).send({
+              status: "KO",
+              message: "Error while getting users",
+            });
+          } else {
+            res.send(result.rows);
+          }
+        });
+      } else if (currentUser.is_admin) {
+        const queryAllMembers = `SELECT id, email, is_admin, is_premium, is_new_user, is_email_verified FROM users WHERE company='${currentUser.company}'`;
+
+        client.query(queryAllMembers, (err, result) => {
+          if (err) {
+            console.error(err);
+            res.status(403).send({
+              status: "KO",
+              message: "Error while getting users",
+            });
+          } else {
+            res.send(result.rows);
+          }
+        });
+      } else {
+        res.status(403).json({
+          message: "Not allowed ! (Not admin)",
+        });
+      }
     }
   });
 };
@@ -160,9 +192,9 @@ export const toggleAdminRights = (req, res, next) => {
 };
 
 export const deleteUserById = (req, res, next) => {
-  const userId = req.params.id;
+  const userIdToDelete = req.params.id;
 
-  const query = `DELETE FROM users WHERE id = '${userId}';`;
+  const query = `DELETE FROM users WHERE id = '${userIdToDelete}';`;
 
   client.query(query, (err, result) => {
     if (err) {

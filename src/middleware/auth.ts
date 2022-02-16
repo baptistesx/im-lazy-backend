@@ -20,7 +20,11 @@ export const isAuthenticated = (req, res, next) => {
   try {
     const token = req.headers.authorization;
 
-    jwt.verify(token, SECRET_KEY);
+    const decodedToken = jwt.verify(token, SECRET_KEY);
+
+    const userId = decodedToken.id;
+
+    req.currentUserId = userId;
 
     next();
   } catch {
@@ -36,9 +40,10 @@ export const isAdmin = (req, res, next) => {
 
     const decodedToken = jwt.verify(token, SECRET_KEY);
 
-    const id = decodedToken.id;
+    const userId = decodedToken.id;
+    req.currentUserId = userId;
 
-    const query = `SELECT is_admin FROM users WHERE id = '${id}';`;
+    const query = `SELECT is_admin FROM users WHERE id = '${userId}';`;
 
     client.query(query, (err, result) => {
       if (err) {
