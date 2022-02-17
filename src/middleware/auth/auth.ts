@@ -49,6 +49,7 @@ export const isAdmin = (req, res, next) => {
       if (err) {
         throw "Invalid token";
       } else {
+        console.log("admin check valid")
         next();
       }
     });

@@ -1,23 +1,40 @@
-// To navigate in browser and automation
+const getCurrentDateTime = require("./index").getCurrentDateTime;
+const sleep = require("./index").sleep;
+
+// To navigate in browser and automation (bot)
 const puppeteer = require("puppeteer");
 
 // Filesystem module
 const fs = require("fs");
 
+// Get the io instance initialized in main.ts
 let io = require("../main").io;
+// Socket room id to not loose logs if quit and come back on the bot logs page
+// TODO: improve this to have a room per user or better system
 const roomId = "1234";
 
+// Function to get integers in a range
 const range = require("../utils/utils").range;
-var format = require("date-fns/format");
 
+// Browser that puppeteer will use to navigate
 let browser;
+// Page opened in browser on which puppeteer will navigate
 let page;
-let membersDataScrapped = [];
-let logs = [];
-let shouldStopBot = false;
-let citySelected = "";
 
-const getCurrentDateTime = () => format(new Date(), "d/M/Y, HH:mm:ss");
+// Array of members scrapped in the perimeter around the city passed as parameter
+let membersDataScrapped = [];
+
+// Array of log strings
+let logs = [];
+
+// Boolean variable checked frequently to know if bot should stop
+// TODO: maybe there is a better way to do this. Maybe with a timer ?
+let shouldStopBot = false;
+
+// The user enters a city name or part of on the frontend app,
+// The backend get on the page all city/country couples proposed and send them to the client
+// citySelected is the couple finally selected by the client
+let citySelected = "";
 
 export const initSocket = async (socket) => {
   socket.join(roomId);
@@ -31,6 +48,8 @@ export const initSocket = async (socket) => {
     "connection",
     `${getCurrentDateTime()} ➤ CONNECTED TO BACKEND API`
   );
+
+  // Send logs when requested
   socket.emit("botLogs", logs);
 
   // Leave the room if the user closes the socket
@@ -39,7 +58,17 @@ export const initSocket = async (socket) => {
   });
 };
 
+const terminateBot = async () => {
+  shouldStopBot = false;
+
+  await closeBrowser(browser);
+
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+};
+
+// Start bot
 export const startBot = async (req, res, next) => {
+  // Reset citySelected, maybe not empty if the bot has already been launched before
   citySelected = "";
 
   res.send("Bot started");
@@ -49,20 +78,14 @@ export const startBot = async (req, res, next) => {
   await openBrowser(req.body.headless, req.body.developmentMode);
 
   if (shouldStopBot) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
-
+    await terminateBot();
     return;
   }
 
   await openPage();
 
   if (shouldStopBot) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
-
+    await terminateBot();
     return;
   }
 
@@ -71,10 +94,7 @@ export const startBot = async (req, res, next) => {
   await login(req.body.email, req.body.password);
 
   if (shouldStopBot) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
-
+    await terminateBot();
     return;
   }
 
@@ -83,24 +103,20 @@ export const startBot = async (req, res, next) => {
   await setSearchParams(req.body.city, req.body.detectionRadius);
 
   if (shouldStopBot) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
-
+    await terminateBot();
     return;
   }
 
+  // TODO: there is maybe a better way to do that: interrupt current function StartBot if shouldStopBot variable pass to true in scrapMembers.
+  // Same situation for sendMessageToMembers
   let shouldStop = await scrapMembers(
     page,
     req.body.minimumAge,
     req.body.maximumAge,
     req.body.city
   );
-  if (shouldStop) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
-
+  if (shouldStopBot) {
+    await terminateBot();
     return;
   }
 
@@ -112,10 +128,8 @@ export const startBot = async (req, res, next) => {
     req.body.city,
     req.body.developmentMode
   );
-  if (shouldStop) {
-    shouldStopBot = false;
-    await closeBrowser(browser);
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+  if (shouldStopBot) {
+    await terminateBot();
     return;
   }
 
@@ -125,19 +139,26 @@ export const startBot = async (req, res, next) => {
   // io.to(roomId).emit("done", `${getCurrentDateTime()} ➤ WORK DONE`);
 };
 
+// Save logString in global logs variable and send it to the client
+
 const logAndEmitToRoom = (logString, isSendingMessagesSentCounter = false) => {
   console.log(logString);
+
   if (isSendingMessagesSentCounter) {
+    // If isSendingMessagesSentCounter = true, it means the string contains a counter, example: 10/34 messages send
+    // It allows on the client logs to display a counter on the same line
     logs = [...logs.slice(0, -1), logString];
 
     io.to(roomId).emit("botLogsMessageSent", logString);
   } else {
+    // Regular log
     logs.push(logString);
 
     io.to(roomId).emit("botLogs", logString);
   }
 };
 
+// Save form params entered by the client into a file
 const saveParamsToFile = async (params) => {
   await fs.writeFile(process.env.PARAMS_FILE, JSON.stringify(params), (err) => {
     if (err) {
@@ -209,6 +230,7 @@ const moveToMeetupSection = async () => {
   await page.goto(process.env.MEETUP_SECTION_URL);
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`);
+
   await page.waitForNavigation();
 
   await page.waitForTimeout(4000); //TODO: check what's better to do
@@ -220,6 +242,9 @@ const setSearchParams = async (city, detectionRadius) => {
 
   await page.waitForTimeout(2000);
 
+  // The user enters a city name or part of, received here as param on the frontend app,
+  // The backend get on the page all city/country couples (cities variable) proposed and send them to the client
+  // citySelected is the couple finally selected by the client
   const cities = await page.$$eval(".dropdown-item", (nodes) =>
     nodes.map((node) => node.textContent)
   );
@@ -234,10 +259,12 @@ const setSearchParams = async (city, detectionRadius) => {
     `${getCurrentDateTime()} ➤ WAITING FOR THE CHOICE OF THE CITY`
   );
 
+  // Wait for the client to choose the city/country couple
   while (citySelected === "") {
     await sleep(500);
   }
 
+  // In order workaway app take in account the city choice, it's necessary to click on one of the menu item
   const [location] = await page.$x(`//a[contains(., '${citySelected}')]`);
 
   if (location) {
@@ -254,21 +281,20 @@ const setSearchParams = async (city, detectionRadius) => {
     `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius}km`
   );
 };
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+
+// Scrap members displayed on the page
 const scrapMembers = async (page, minAge, maxAge, city) => {
   // Get all members profile page url (present on the page)
-  // TODO: check other page if pagination exists
+  // TODO: check other page if pagination exists (in order to scrap members on the next pages)
   const profilesHrefs = await page.$$eval("a", (hrefs) =>
     hrefs.map((a) => a.href).filter((link) => link.includes("/en/workawayer/"))
   );
-  // TODO: check if there is a better way to do
-  // Using a set to remove dupplicates
-  const profilesHrefsWithoutDupplicates = new Set(profilesHrefs);
-  // Using an array again
-  const finalProfilesHrefsArray = [...profilesHrefsWithoutDupplicates];
 
+  // TODO: check why there are duplicate profiles
+  // Remove duplicate using temporary Set
+  const finalProfilesHrefsArray = [...new Set(profilesHrefs)];
+
+  // Get all integers in the range
   const ageRange = range(parseInt(minAge), parseInt(maxAge));
 
   logAndEmitToRoom(
@@ -284,6 +310,7 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     if (shouldStopBot) {
       return true;
     }
+
     let href = finalProfilesHrefsArray[i];
 
     // Navigate to profile page
@@ -348,6 +375,8 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     } MEMBERS IN THE AGE RANGE`
   );
 
+  // TODO: add specific client id or something in order to render this file accessible only by this client
+  // TODO: save this file somewhere else?
   const resultFile = `dist/${city}_members.json`;
 
   await fs.writeFile(
@@ -363,6 +392,7 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
   );
 };
 
+// Send french message to french people respecting criteria, english message otherwise
 const sendMessageToMembers = async (
   page,
   messageSubject,
@@ -379,6 +409,7 @@ const sendMessageToMembers = async (
       return true;
     }
 
+    // Navigate to the message form corresponding to the scrapped user
     await page.goto(
       process.env.MESSAGE_FORM_URL + membersDataScrapped[index].idForMessage
     );
@@ -386,6 +417,7 @@ const sendMessageToMembers = async (
     if ((await page.$("#conversationcontainer")) === null) {
       await page.type("#subject", messageSubject);
 
+      // Checking user nationality
       if (membersDataScrapped[index].from.includes("France")) {
         await page.type("#message", frenchMessage);
       } else {
@@ -394,6 +426,7 @@ const sendMessageToMembers = async (
 
       await page.keyboard.press("Tab");
 
+      // Do not send the message for real if developmentMode = true
       if (!developmentMode) {
         await page.keyboard.press("Enter");
       }
@@ -459,7 +492,6 @@ export const setCity = async (req, res, next) => {
   citySelected = req.body.city;
 };
 
-// TODO: logs
 export const getFilesName = (req, res, next) => {
   const filesName = fs
     .readdirSync("./dist")
@@ -472,9 +504,18 @@ export const deleteFile = (req, res, next) => {
   try {
     fs.unlinkSync(`./dist/${req.query.name}`);
 
+    logAndEmitToRoom(
+      `${getCurrentDateTime()} ➤ /dist/${req.query.name} WELL DELETED`
+    );
+
     res.send("ok");
   } catch (err) {
+    logAndEmitToRoom(
+      `${getCurrentDateTime()} ➤ FAILED TO DELETE /dist/${req.query.name}`
+    );
+
     res.send("ko");
+
     console.error(err);
   }
 };

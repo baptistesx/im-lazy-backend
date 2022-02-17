@@ -1,45 +1,55 @@
-// allow to use .env variables
+// Allow to use .env variables
 require("dotenv").config();
 
 var express = require("express");
 var app = express();
 var server = require("http").createServer(app);
+
+// Sockets for the bot live logs
 var io = (exports.io = require("socket.io")(server, {
+  // TODO: change "*" to secure app
   cors: { origin: "*" },
 }));
 
 const bodyParser = require("body-parser");
+
 var cors = require("cors");
 
-// Functions
-const startBot = require("./functions/workaway-bot-functions").startBot;
-const clearLogs = require("./functions/workaway-bot-functions").clearLogs;
-const stopBot = require("./functions/workaway-bot-functions").stopBot;
-const setCity = require("./functions/workaway-bot-functions").setCity;
-const getFilesName = require("./functions/workaway-bot-functions").getFilesName;
-const getFile = require("./functions/workaway-bot-functions").getFile;
-const deleteFile = require("./functions/workaway-bot-functions").deleteFile;
-const initSocket = require("./functions/workaway-bot-functions").initSocket;
-const signup = require("./functions/user-functions").signup;
-const signin = require("./functions/user-functions").signin;
-const getUsers = require("./functions/user-functions").getUsers;
-const toggleAdminRights = require("./functions/user-functions").toggleAdminRights;
-const deleteUserById = require("./functions/user-functions").deleteUserById;
+// Workaway bot callbacks
+const startBot = require("./workawayBot/index").startBot;
+const clearLogs = require("./workawayBot/index").clearLogs;
+const stopBot = require("./workawayBot/index").stopBot;
+const setCity = require("./workawayBot/index").setCity;
+const getFilesName = require("./workawayBot/index").getFilesName;
+const getFile = require("./workawayBot/index").getFile;
+const deleteFile = require("./workawayBot/index").deleteFile;
+const initSocket = require("./workawayBot/index").initSocket;
+
+// Users callbacks
+const signup = require("./user/index").signup;
+const signin = require("./user/index").signin;
+const getUsers = require("./user/index").getUsers;
+const updateUserById = require("./user/index").updateUserById;
+const createUser = require("./user/index").createUser;
+const getCompanies = require("./user/index").getCompanies;
+const toggleAdminRights = require("./user/index").toggleAdminRights;
+const deleteUserById = require("./user/index").deleteUserById;
+
+// Auth middlewares
 const isAdmin = require("./middleware/auth").isAdmin;
 const isAuthenticated = require("./middleware/auth").isAuthenticated;
 
 // Parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
+// Parse application/json
+app.use(bodyParser.json());
 
 app.use(cors());
 
-// parse application/json
-app.use(bodyParser.json());
-
 // Workaway Bot Routes
 app.post("/startBot", startBot);
-app.get("/clearLogs", clearLogs);
 app.get("/stopBot", stopBot);
+app.get("/clearLogs", clearLogs);
 app.post("/setCity", setCity);
 app.get("/filesName", getFilesName);
 app.get("/file", getFile);
@@ -48,9 +58,12 @@ app.delete("/file", deleteFile);
 // Users Routes
 app.post("/signup", signup);
 app.post("/signin", signin);
+app.put("/user", isAdmin, updateUserById);
+app.post("/user", isAdmin, createUser);
 app.get("/users", isAdmin, getUsers);
+app.get("/companies", isAdmin, getCompanies);
 app.put("/toggleAdminRights", isAdmin, toggleAdminRights);
-app.delete("/deleteUserById/:id", isAdmin, deleteUserById);
+app.delete("/user/:id", isAdmin, deleteUserById);
 
 // Init socket
 io.sockets.on("connection", initSocket);
