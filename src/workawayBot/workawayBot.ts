@@ -1,5 +1,7 @@
-const getCurrentDateTime = require("./index").getCurrentDateTime;
-const sleep = require("./index").sleep;
+const getCurrentDateTime = require("./utils").getCurrentDateTime;
+const sleep = require("./utils").sleep;
+// Function to get integers in a range
+const range = require("../utils").range;
 
 // To navigate in browser and automation (bot)
 const puppeteer = require("puppeteer");
@@ -13,8 +15,6 @@ let io = require("../main").io;
 // TODO: improve this to have a room per user or better system
 const roomId = "1234";
 
-// Function to get integers in a range
-const range = require("../utils/utils").range;
 
 // Browser that puppeteer will use to navigate
 let browser;

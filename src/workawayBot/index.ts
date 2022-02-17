@@ -11,8 +11,4 @@ module.exports = {
   getFilesName: workawayBot.getFilesName,
   deleteFile: workawayBot.deleteFile,
   getFile: workawayBot.getFile,
-
-  range: utils.range,
-  getCurrentDateTime: utils.getCurrentDateTime,
-  sleep: utils.sleep,
 };
