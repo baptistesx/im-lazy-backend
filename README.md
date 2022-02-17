@@ -3,7 +3,7 @@
 ImLazy was at the beggining only a Node.js bot using Puppeteer module to invite workaway members in the area to meetup.
 Then it evolved with a ReactJs UI and now taking a "SAAS template" form. (auth, user management...)
 
-This project correspond to the backend API for the [**ImLazy** app frontend](https://github.com/baptistesx/bots_dashboard).
+This project correspond to the backend API for the [**ImLazy** app frontend](https://github.com/baptistesx/im-lazy-frontend).
 **Node.js** framework is used with **Express** module for the server.
 **PostgreSQL** is used for the database.
 
@@ -14,12 +14,12 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 
 ## 2: Setup project
 
-- $ git clone git@github.com:baptistesx/workaway-messaging.git
-- $ cd workaway-messaging
+- ### `git clone git@github.com:baptistesx/workaway-messaging.git`
+- ### `cd workaway-messaging`
 - Ask for .env file to Baptiste
 - Replace .env.dist with .env received
-- $ npm i
-- $ npm start
+- ### `npm i`
+- # `npm start`
 
 ## Various TODOs
 
