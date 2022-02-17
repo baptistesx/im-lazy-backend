@@ -7,8 +7,6 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 **Node.js** framework is used with **Express** module for the server.
 **PostgreSQL** is used for the database.
 
-> **TODO:** To check to use Sequilize and/or Knex for an easier use of models and db
-
 ## 1: Setup PostgreSQL
 
 > **TODO:** To fill up this part
@@ -21,9 +19,10 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 - Ask for .env file to Baptiste
 - Replace .env.dist with .env received
 - $ npm i
-- $ npm start (TODO: fill up the db
+- $ npm start
 
 ## Various TODOs
 
-- setup error handler and backend logs save in file
+- Setup error handler and backend logs save in file
 - Use Types for variables
+- To check to use Sequilize and/or Knex for an easier use of models and db
