@@ -1,7 +1,8 @@
-const getCurrentDateTime = require("./utils").getCurrentDateTime;
-const sleep = require("./utils").sleep;
+const path = require("path");
+const getCurrentDateTime = require(`${__dirname}/utils`).getCurrentDateTime;
+const sleep = require(`${__dirname}/utils`).sleep;
 // Function to get integers in a range
-const range = require("../utils").range;
+const range = require(`${__dirname}/utils`).range;
 
 // To navigate in browser and automation (bot)
 const puppeteer = require("puppeteer");
@@ -14,7 +15,6 @@ let io = require("../main").io;
 // Socket room id to not loose logs if quit and come back on the bot logs page
 // TODO: improve this to have a room per user or better system
 const roomId = "1234";
-
 
 // Browser that puppeteer will use to navigate
 let browser;

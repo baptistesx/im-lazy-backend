@@ -23,100 +23,17 @@ const client = new Client({
 client.connect();
 //TODO: is client.end(); necessary?
 
-// Register user with credentials (email and password)
-export const signup = (req, res, next) => {
-  const credentials = req.body;
-
-  // Encrypt password
-  bcrypt.hash(credentials.password, saltRounds, function (err, hash) {
-    // Generate new uuid for the new user
-    const newId = uuidV4();
-
-    // Create new user and return it
-    const query = `
-INSERT INTO users (email, id, password)
-VALUES ('${credentials.email}', '${newId}', '${hash}');
-`;
-    client.query(query, (err, result) => {
-      if (err) {
-        console.error(err);
-        //TODO: give more details on the error?
-        res
-          .status(403)
-          .send({ status: "KO", message: "Error while creating user" });
-      } else {
-        res.send({
-          status: "OK",
-          message: "User well created",
-        });
-      }
-    });
-  });
+export const getUser = (req, res, next) => {
+  res.status(200).send(req?.user);
 };
 
-// Log the user in with credentials (email and password)
-export const signin = (req, res, next) => {
-  const credentials = req.body;
-
-  const query = `
-  select u.id, u.password, u.email, u.name, u.password, u.is_admin, u.is_super_admin, u.is_new_user, u.is_premium, u.is_email_verified, c.id AS company_id, c.name AS company_name 
-        from users AS u 
-        left join companies AS c on u.company = c.id WHERE u.email='${credentials.email}'
-`;
-
-  client.query(query, (err, result) => {
-    if (err || result.rowCount === 0) {
-      console.error(err);
-
-      res.status(403).send({
-        status: "KO",
-        message: "This user doesn't exist  ",
-      });
-    } else {
-      const user = result.rows[0];
-
-      // Check if password is correct
-      bcrypt.compare(
-        credentials.password,
-        user.password,
-        function (err, result) {
-          if (err) {
-            res.status(403).send({
-              status: "KO",
-              message: "This user doesn't exist or incorrect password ",
-            });
-          } else {
-            const token = jwt.sign(
-              {
-                id: user.id,
-              },
-              SECRET_KEY
-            );
-
-            // Remove password field before sending user to client
-            delete user.password;
-
-            res.send({
-              status: "OK",
-              message: "Welcome",
-              user: user,
-              token: token,
-            });
-
-            if (user.is_new_user) {
-              // Once signedup, the user is not new anymore
-              client.query(
-                "UPDATE users SET is_new_user = false",
-                (err, result) => {
-                  //TODO: necessary?
-                }
-              );
-            }
-          }
-        }
-      );
-    }
-  });
+export const resetPassword = (req, res, next) => {
+  if (req.user) {
+    //TODO: send a reset password email to user.email
+  }
+  //Don't send an error message if email is invalid, in case of hacker,
+  // he cannot know if the email input is valid
+  res.status(200).send();
 };
 
 export const getUsers = (req, res, next) => {
