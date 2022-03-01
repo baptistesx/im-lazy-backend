@@ -29,6 +29,7 @@ const AuthController = {
   },
   async isLoggedIn(req, res, next) {
     const token = req.cookies.token;
+
     if (!token) {
       res.status(400).send("no user");
       return;
@@ -53,7 +54,15 @@ const AuthController = {
     //Don't send an error message if email is invalid, in case of hacker,
     // he cannot know if the email input is valid
     req.user = user;
-    
+
+    next();
+  },
+  async isAdmin(req, res, next) {
+    if (!req.user.isAdmin) {
+      res.status(400).send("Not allowed, not admin");
+      return;
+    }
+
     next();
   },
 };

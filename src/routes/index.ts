@@ -29,11 +29,31 @@ module.exports = (app, passport) => {
   app.delete("/file", deleteFile);
 
   // Users Routes
-  app.put("/user", updateUserById);
-  app.post("/user", createUser);
-  app.get("/users", getUsers);
-  app.put("/toggleAdminRights", toggleAdminRights);
-  app.delete("/user/:id", deleteUserById);
+  app.put(
+    "/user",
+    [AuthController.isLoggedIn, AuthController.isAdmin],
+    updateUserById
+  );
+  app.post(
+    "/user",
+    [AuthController.isLoggedIn, AuthController.isAdmin],
+    createUser
+  );
+  app.get(
+    "/users",
+    [AuthController.isLoggedIn, AuthController.isAdmin],
+    getUsers
+  );
+  app.put(
+    "/toggleAdminRights",
+    [AuthController.isLoggedIn, AuthController.isAdmin],
+    toggleAdminRights
+  );
+  app.delete(
+    "/user/:id",
+    [AuthController.isLoggedIn, AuthController.isAdmin],
+    deleteUserById
+  );
   app.get("/user", AuthController.isLoggedIn, getUser);
   app.post(
     "/signInWithGoogle",
