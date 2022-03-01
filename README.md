@@ -14,8 +14,8 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 
 ## 2: Setup project
 
-- ### `git clone git@github.com:baptistesx/workaway-messaging.git`
-- ### `cd workaway-messaging`
+- ### `git clone git@github.com:baptistesx/im-lazy-backend.git`
+- ### `cd im-lazy-backend`
 - Ask for .env file to Baptiste
 - Replace .env.dist with .env received
 - ### `npm i`
@@ -24,5 +24,4 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 ## Various TODOs
 
 - Setup error handler and backend logs save in file
-- Use Types for variables
-- To check to use Sequilize and/or Knex for an easier use of models and db
+- Use typescript strict

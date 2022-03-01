@@ -11,11 +11,19 @@ const saltRounds = 10;
 
 config();
 
-const getProfileFromGoogleData = (profile) => {
+type GoogleProfile = {
+  id: number;
+  displayName: string;
+  emails: { value: string }[];
+  provider: string;
+};
+
+const getGoogleProfile = (profile: GoogleProfile) => {
   const { id, displayName, emails, provider } = profile;
 
   if (emails?.length) {
     const email = emails[0].value;
+
     return {
       googleId: id,
       name: displayName,
@@ -23,17 +31,23 @@ const getProfileFromGoogleData = (profile) => {
       provider,
     };
   }
+
   return null;
 };
 
-module.exports = function (passport) {
+module.exports = function (passport: any) {
   passport.use(
     new GoogleTokenStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (
+        accessToken: string,
+        refreshToken: string,
+        profile: GoogleProfile,
+        done: (arg0: null, arg1: any) => any
+      ) => {
         try {
           const existingGoogleAccount = await User.findOne({
             where: { googleId: profile.id },
@@ -41,11 +55,11 @@ module.exports = function (passport) {
 
           if (!existingGoogleAccount) {
             const existingEmailAccount = await User.findOne({
-              where: { email: getProfileFromGoogleData(profile).email },
+              where: { email: getGoogleProfile(profile)?.email },
             });
 
             if (!existingEmailAccount) {
-              const newAccount = await User.create(getProfileFromGoogleData(profile));
+              const newAccount = await User.create(getGoogleProfile(profile));
 
               return done(null, newAccount);
             }
@@ -53,7 +67,7 @@ module.exports = function (passport) {
           }
           return done(null, existingGoogleAccount);
         } catch (error) {
-          throw new Error(error);
+          throw new Error("Error checking Google account");
         }
       }
     )
@@ -69,7 +83,7 @@ module.exports = function (passport) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req, email, password, done) => {
+      async (req: any, email: string, password: string, done: Function) => {
         try {
           const existingEmailAccount = await User.findOne({
             where: { email: email },
@@ -84,8 +98,8 @@ module.exports = function (passport) {
           bcrypt.compare(
             password,
             existingEmailAccount.password,
-            function (err, result) {
-              if (err || !result) {
+            function (err: Error, isMatch: boolean) {
+              if (err || !isMatch) {
                 return done(null, false, {
                   message: "Bad password",
                 });
@@ -96,7 +110,7 @@ module.exports = function (passport) {
             }
           );
         } catch (error) {
-          throw new Error(error);
+          throw new Error("An error occured while local signin");
         }
       }
     )
@@ -112,7 +126,7 @@ module.exports = function (passport) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req, email, password, done) => {
+      async (req: any, email: string, password: string, done: Function) => {
         try {
           const existingEmailAccount = await User.findOne({
             where: { email: email },
@@ -124,31 +138,35 @@ module.exports = function (passport) {
           }
 
           //TODO: use sequelize hook to encrypt password automatically
-          bcrypt.hash(password, saltRounds, async function (err, hash) {
-            const newAccount = await User.create({
-              name: req.body.name,
-              email: email,
-              password: hash,
-            });
+          bcrypt.hash(
+            password,
+            saltRounds,
+            async function (err: Error, hash: string) {
+              const newAccount = await User.create({
+                name: req.body.name,
+                email: email,
+                password: hash,
+              });
 
-            return done(null, newAccount);
-          });
+              return done(null, newAccount);
+            }
+          );
         } catch (error) {
-          throw new Error(error);
+          throw new Error("An error occured while local signup");
         }
       }
     )
   );
 
-  passport.serializeUser((user, done) => {
+  passport.serializeUser((user: any, done: Function) => {
     done(null, user.id);
   });
 
-  passport.deserializeUser((id, done) => {
+  passport.deserializeUser((id: string, done: Function) => {
     User.findByPk(id)
-      .then((user) => {
+      .then((user: any) => {
         done(null, user);
       })
-      .catch((error) => done(error));
+      .catch((error: Error) => done(error));
   });
 };
