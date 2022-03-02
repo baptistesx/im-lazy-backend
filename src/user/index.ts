@@ -1,9 +1,10 @@
+import { getUser } from "./user";
 // user/index.ts
 var user = require("./user");
 
 module.exports = {
-  signup: user.signup,
-  signin: user.signin,
+  getUser: user.getUser,
+  resetPassword: user.resetPassword,
   getUsers: user.getUsers,
   toggleAdminRights: user.toggleAdminRights,
   deleteUserById: user.deleteUserById,
