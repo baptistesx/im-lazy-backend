@@ -65,6 +65,23 @@ const AuthController = {
 
     next();
   },
+  async isAdminOrCurrentUser(req, res, next) {
+    const token = req.cookies.token;
+
+    if (!token) {
+      res.status(400).send("no user");
+      return;
+    }
+
+    var id = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!req.user.isAdmin && id != req.body.id) {
+      res.status(400).send("Not allowed, not admin");
+      return;
+    }
+
+    next();
+  },
 };
 
 export default AuthController;

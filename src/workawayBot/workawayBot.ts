@@ -221,27 +221,27 @@ const login = async (email, password) => {
   await page.waitForNavigation();
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`);
-
-  await page.waitForNavigation();
 };
 
 const moveToMeetupSection = async () => {
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVING TO MEETUP SECTION`);
+
   // Navigate to the meetup section
   await page.goto(process.env.MEETUP_SECTION_URL);
 
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`);
 
-  await page.waitForNavigation();
-
-  await page.waitForTimeout(4000); //TODO: check what's better to do
+  await page.waitForTimeout(2000); //TODO: check what's better to do
 };
 
 const setSearchParams = async (city, detectionRadius) => {
   // Set the location
-  await page.type("#autocomplete", city);
+  await page.focus("#autocomplete");
+  await page.keyboard.type(city);
 
   await page.waitForTimeout(2000);
 
+  //TODO: handle case where no cities were found
   // The user enters a city name or part of, received here as param on the frontend app,
   // The backend get on the page all city/country couples (cities variable) proposed and send them to the client
   // citySelected is the couple finally selected by the client
@@ -502,16 +502,16 @@ export const getFilesName = (req, res, next) => {
 
 export const deleteFile = (req, res, next) => {
   try {
-    fs.unlinkSync(`./dist/${req.query.name}`);
+    fs.unlinkSync(`./dist/${req.params.name}`);
 
     logAndEmitToRoom(
-      `${getCurrentDateTime()} ➤ /dist/${req.query.name} WELL DELETED`
+      `${getCurrentDateTime()} ➤ /dist/${req.params.name} WELL DELETED`
     );
 
     res.send("ok");
   } catch (err) {
     logAndEmitToRoom(
-      `${getCurrentDateTime()} ➤ FAILED TO DELETE /dist/${req.query.name}`
+      `${getCurrentDateTime()} ➤ FAILED TO DELETE /dist/${req.params.name}`
     );
 
     res.send("ko");
@@ -521,8 +521,7 @@ export const deleteFile = (req, res, next) => {
 };
 
 export const getFile = (req, res, next) => {
-  console.log("get file", req.query.name);
-  var filePath = `./dist/${req.query.name}`;
+  var filePath = `./dist/${req.params.name}`;
 
   fs.readFile(filePath, "utf8", (err, data) => {
     if (err) {
