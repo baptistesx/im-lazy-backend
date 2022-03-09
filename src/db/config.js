@@ -7,7 +7,7 @@ module.exports = {
     dialect: "postgres",
   },
   production: {
-    database: "ImLazyDb",
+    database: "im-lazy",
     use_env_variable: "DATABASE_URL",
     dialect: "postgres",
     dialectOptions: {
