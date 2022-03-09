@@ -57,6 +57,14 @@ const AuthController = {
 
     next();
   },
+  async isPremium(req, res, next) {
+    if (!req.user.isPremium) {
+      res.status(400).send("Not allowed, not premium");
+      return;
+    }
+
+    next();
+  },
   async isAdmin(req, res, next) {
     if (!req.user.isAdmin) {
       res.status(400).send("Not allowed, not admin");

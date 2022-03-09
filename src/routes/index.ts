@@ -20,13 +20,41 @@ const deleteUserById = require("../user/index").deleteUserById;
 
 module.exports = (app, passport) => {
   // Workaway Bot Routes
-  app.post("/startBot", startBot);
-  app.get("/stopBot", stopBot);
-  app.get("/clearLogs", clearLogs);
-  app.post("/setCity", setCity);
-  app.get("/filesName", getFilesName);
-  app.get("/file/:name", getFile);
-  app.delete("/file/:name", deleteFile);
+  app.post(
+    "/startBot",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    startBot
+  );
+  app.get(
+    "/stopBot",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    stopBot
+  );
+  app.get(
+    "/clearLogs",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    clearLogs
+  );
+  app.post(
+    "/setCity",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    setCity
+  );
+  app.get(
+    "/filesName",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    getFilesName
+  );
+  app.get(
+    "/file/:name",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    getFile
+  );
+  app.delete(
+    "/file/:name",
+    [AuthController.isLoggedIn, AuthController.isPremium],
+    deleteFile
+  );
 
   // Users Routes
   app.put(
@@ -34,42 +62,52 @@ module.exports = (app, passport) => {
     [AuthController.isLoggedIn, AuthController.isAdminOrCurrentUser],
     updateUserById
   );
+
   app.post(
     "/user",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     createUser
   );
+
   app.get(
     "/users",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     getUsers
   );
+
   app.put(
     "/toggleAdminRights",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     toggleAdminRights
   );
+
   app.delete(
     "/user/:id",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     deleteUserById
   );
+
   app.get("/user", AuthController.isLoggedIn, getUser);
+
   app.post(
     "/signInWithGoogle",
     passport.authenticate("google-token", { session: false }),
     AuthController.signIn
   );
+
   app.post(
     "/signInWithEmailAndPassword",
     passport.authenticate("local-signin", { session: false }),
     AuthController.signIn
   );
+
   app.post(
     "/signUp",
     passport.authenticate("local-signup", { session: false }),
     AuthController.signIn
   );
+
   app.post("/resetPassword", AuthController.userExists, resetPassword);
+
   app.post("/signOut", AuthController.signOut);
 };
