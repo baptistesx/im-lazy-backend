@@ -25,13 +25,13 @@ module.exports = (app, passport) => {
   app.get("/clearLogs", clearLogs);
   app.post("/setCity", setCity);
   app.get("/filesName", getFilesName);
-  app.get("/file", getFile);
-  app.delete("/file", deleteFile);
+  app.get("/file/:name", getFile);
+  app.delete("/file/:name", deleteFile);
 
   // Users Routes
   app.put(
     "/user",
-    [AuthController.isLoggedIn, AuthController.isAdmin],
+    [AuthController.isLoggedIn, AuthController.isAdminOrCurrentUser],
     updateUserById
   );
   app.post(
