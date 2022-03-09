@@ -303,7 +303,7 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     }`
   );
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SCRAPPING...`);
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SCRAPPING (ONLY MEMBERS IN THE AGE RANGE)...`);
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
