@@ -20,7 +20,8 @@ const initSocket = require("./workawayBot/index").initSocket;
 // Init socket
 io.sockets.on("connection", initSocket);
 
-app.use(cors({ origin: "https://im-lazy-front.herokuapp.com" }));
+// app.use(cors({ origin: "https://im-lazy-front.herokuapp.com" }));
+app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
