@@ -6,15 +6,11 @@ const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || "development";
 
-console.log("EENV: ", env);
-console.log(__dirname + "/../config.js");
-
-const customConfig = require(path.join(__dirname, "/../config"))[env];
-console.log("customConfig: ", customConfig);
+console.log("EENV************: ", env);
 
 //TODO: to delete
 const { exec } = require("child_process");
-exec(`ls ${__dirname}`, (error, stdout, stderr) => {
+exec(`ls -a ${path.join(__dirname, "/../")}`, (error, stdout, stderr) => {
   if (error) {
     console.log(`error: ${error.message}`);
     return;
@@ -39,6 +35,10 @@ exec(
     console.log(`stdout: ${stdout}`);
   }
 );
+
+const customConfig = require(path.join(__dirname, "/../config"))[env];
+console.log("customConfig: ", customConfig);
+
 const db: { sequelize: any; Sequelize: any } = {
   sequelize: undefined,
   Sequelize: undefined,
