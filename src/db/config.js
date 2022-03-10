@@ -5,8 +5,10 @@ module.exports = {
     dialect: "postgres",
   },
   production: {
+    database: "d18b5hcup39vac",
     use_env_variable: "DATABASE_URL",
     dialect: "postgres",
+    protocol: 'postgres',
     dialectOptions: {
       ssl: {
         require: true,
