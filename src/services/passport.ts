@@ -1,5 +1,3 @@
-const config = require("dotenv").config;
-
 const User = require("../db/models").User;
 
 const GoogleTokenStrategy = require("passport-google-token").Strategy;
@@ -8,8 +6,6 @@ var LocalStrategy = require("passport-local");
 // To encrypt and verify passwords
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
-
-config();
 
 type GoogleProfile = {
   id: number;

@@ -1,3 +1,6 @@
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
 const cors = require("cors");
 const logger = require("morgan");
 const express = require("express");
@@ -20,8 +23,13 @@ const initSocket = require("./workawayBot/index").initSocket;
 // Init socket
 io.sockets.on("connection", initSocket);
 
-// app.use(cors({ origin: "https://im-lazy-front.herokuapp.com" }));
-app.use(cors());
+const corsOptions = {
+  credentials: true,
+  origin:
+    process.env.NODE_ENV !== "production" ? true : process.env.ALLOWED_DOMAIN,
+};
+app.use(cors(corsOptions));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
