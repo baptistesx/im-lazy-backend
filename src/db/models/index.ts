@@ -6,8 +6,11 @@ const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || "development";
 
-const customConfig = require(path.join(__dirname, "/../config"))[env];
-
+var root = require("path").dirname(require.main.filename);
+console.log("rooooot", root);
+console.log("custom path: ", path.join(root, "/db/config"));
+const customConfig = require(path.join(root, "/db/config"))[env];
+console.log(customConfig);
 const db: { sequelize: any; Sequelize: any } = {
   sequelize: undefined,
   Sequelize: undefined,
