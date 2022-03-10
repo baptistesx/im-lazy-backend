@@ -6,38 +6,7 @@ const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || "development";
 
-console.log("EENV************: ", env);
-
-//TODO: to delete
-const { exec } = require("child_process");
-exec(`ls -a ${path.join(__dirname, "/../")}`, (error, stdout, stderr) => {
-  if (error) {
-    console.log(`error: ${error.message}`);
-    return;
-  }
-  if (stderr) {
-    console.log(`stderr: ${stderr}`);
-    return;
-  }
-  console.log(`stdout: ${stdout}`);
-});
-exec(
-  `ls ${path.join(__dirname, "/../config.js")}`,
-  (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.log(`stderr: ${stderr}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-  }
-);
-
 const customConfig = require(path.join(__dirname, "/../config"))[env];
-console.log("customConfig: ", customConfig);
 
 const db: { sequelize: any; Sequelize: any } = {
   sequelize: undefined,
