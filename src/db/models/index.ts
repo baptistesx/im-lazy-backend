@@ -5,9 +5,11 @@ const path = require("path");
 const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || "development";
-
+console.log("ENVIRONMENT***********: ", env);
 var root = require("path").dirname(require.main.filename);
-const customConfig = require(path.join(path.join(root, "/../src/db/config")))[env];
+const customConfig = require(path.join(path.join(root, "/../src/db/config")))[
+  env
+];
 
 const db: { sequelize: any; Sequelize: any } = {
   sequelize: undefined,
@@ -17,6 +19,9 @@ const db: { sequelize: any; Sequelize: any } = {
 let sequelize;
 
 if (customConfig.use_env_variable) {
+  console.log("IN IF ***********")
+  console.log(process.env[customConfig.use_env_variable])
+  console.log(customConfig)
   sequelize = new Sequelize(
     process.env[customConfig.use_env_variable],
     customConfig
