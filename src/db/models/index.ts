@@ -19,15 +19,11 @@ const db: { sequelize: any; Sequelize: any } = {
 let sequelize;
 
 if (customConfig.use_env_variable) {
-  console.log("IN IF ***********")
-  console.log(process.env[customConfig.use_env_variable])
-  console.log(customConfig)
   sequelize = new Sequelize(
     process.env[customConfig.use_env_variable],
     customConfig
   );
 } else {
-  console.log("IN ELSE ********")
   sequelize = new Sequelize(
     customConfig.database,
     customConfig.username,
@@ -35,7 +31,6 @@ if (customConfig.use_env_variable) {
     customConfig
   );
 }
-console.log("AFFTTTER SETUP SEQUELIZE ***")
 fs.readdirSync(__dirname)
   .filter((file) => {
     return (
@@ -49,7 +44,6 @@ fs.readdirSync(__dirname)
     );
     db[model.name] = model;
   });
-
 Object.keys(db).forEach((modelName) => {
   if (db[modelName]?.associate) {
     db[modelName]?.associate(db);
