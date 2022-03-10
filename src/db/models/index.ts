@@ -9,7 +9,7 @@ const env = process.env.NODE_ENV || "development";
 console.log("EENV: ", env);
 console.log(__dirname + "/../config.js");
 
-const customConfig = require(path.join(__dirname, "/../config.js"))[env];
+const customConfig = require(path.join(__dirname, "/../config"))[env];
 console.log("customConfig: ", customConfig);
 
 //TODO: to delete
