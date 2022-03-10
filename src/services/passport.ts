@@ -63,7 +63,8 @@ module.exports = function (passport: any) {
           }
           return done(null, existingGoogleAccount);
         } catch (error) {
-          throw new Error("Error checking Google account");
+          console.log("An error occured while local signin:", error);
+          return done(null, false);
         }
       }
     )
@@ -106,7 +107,10 @@ module.exports = function (passport: any) {
             }
           );
         } catch (error) {
-          throw new Error("An error occured while local signin");
+          console.log("An error occured while local signin:", error);
+          return done(null, false, {
+            message: "An error occured while local signin",
+          });
         }
       }
     )
@@ -124,9 +128,11 @@ module.exports = function (passport: any) {
       },
       async (req: any, email: string, password: string, done: Function) => {
         try {
+          console.log("beffore");
           const existingEmailAccount = await User.findOne({
             where: { email: email },
           });
+          console.log("exxxisitig", existingEmailAccount);
           if (existingEmailAccount) {
             return done(null, false, {
               message: "Account already used.",
@@ -148,7 +154,10 @@ module.exports = function (passport: any) {
             }
           );
         } catch (error) {
-          throw new Error("An error occured while local signup");
+          console.log("An error occured while local signup:", error);
+          return done(null, false, {
+            message: "An error occured while local signup",
+          });
         }
       }
     )

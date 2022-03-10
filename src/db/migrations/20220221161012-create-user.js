@@ -17,7 +17,7 @@ module.exports = {
       password: {
         type: Sequelize.STRING
       },
-      goodleId: {
+      googleId: {
         type: Sequelize.STRING
       },
       provider: {
@@ -30,7 +30,16 @@ module.exports = {
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
-      }
+      },
+      isAdmin: {
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
+      },
+      isPremium: {
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
+      },
+
     });
   },
   async down(queryInterface, Sequelize) {

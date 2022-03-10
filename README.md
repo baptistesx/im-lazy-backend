@@ -20,6 +20,24 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 - Ask for .env file to Baptiste
 - Replace .env.dist with .env received
 - ### `npm i`
+
+The next steps are inspired by https://www.sqlshack.com/setting-up-a-postgresql-database-on-mac/
+To work locally on macos :
+- install brew: /bin/bash -c “$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)”
+- brew update
+- install postgres: brew install postgresql
+-  brew services start postgresql 
+- to stop the service:  brew services stop postgresql 
+
+- configure postgres database server
+-  $ psql postgres 
+CREATE ROLE newUser WITH LOGIN PASSWORD ‘password’;
+ALTER ROLE newUser CREATEDB; 
+- \q (to quit)
+
+- install pg admin to navigate Postgres Database server
+
+- change DATABASE_DEV_URL env var with local username & password
 - ### `sequelize db:create`
 - ### `sequelize db:migrate`
 
