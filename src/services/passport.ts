@@ -128,7 +128,6 @@ module.exports = function (passport: any) {
       },
       async (req: any, email: string, password: string, done: Function) => {
         try {
-          console.log("beffore");
           const existingEmailAccount = await User.findOne({
             where: { email: email },
           });
