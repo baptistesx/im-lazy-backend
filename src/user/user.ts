@@ -14,17 +14,6 @@ const { Client } = require("pg");
 
 const User = require("../db/models").User;
 
-const client = new Client({
-  user: "baptiste",
-  host: "localhost",
-  database: "ImLazyDb",
-  password: "password",
-  port: 5432,
-});
-
-client.connect();
-//TODO: is client.end(); necessary?
-
 export const getUser = (req, res, next) => {
   res.status(200).send(req?.user);
 };
