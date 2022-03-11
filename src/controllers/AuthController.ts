@@ -29,7 +29,8 @@ const AuthController = {
   },
   async isLoggedIn(req, res, next) {
     const token = req.cookies.token;
-
+    console.log(req.cookies.token);
+    console.log(req);
     if (!token) {
       res.status(400).send("no user");
       return;
