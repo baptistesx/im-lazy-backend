@@ -132,7 +132,7 @@ module.exports = function (passport: any) {
           const existingEmailAccount = await User.findOne({
             where: { email: email },
           });
-          console.log("exxxisitig", existingEmailAccount);
+
           if (existingEmailAccount) {
             return done(null, false, {
               message: "Account already used.",
