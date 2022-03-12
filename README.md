@@ -35,13 +35,13 @@ CREATE ROLE newUser WITH LOGIN PASSWORD ‘password’;
 ALTER ROLE newUser CREATEDB; 
 - \q (to quit)
 
-- install pg admin to navigate Postgres Database server
+- install pg admin to navigate Postgres Database server (https://www.pgadmin.org/download/)
 
 - change DATABASE_DEV_URL env var with local username & password
 - ### `sequelize db:create`
 - ### `sequelize db:migrate`
 
-- # `npm start`
+- # `npm run dev`
 
 ## Various TODOs
 

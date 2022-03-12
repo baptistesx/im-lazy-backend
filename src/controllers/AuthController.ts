@@ -16,7 +16,7 @@ const AuthController = {
       .cookie("token", token, {
         secure: process.env.NODE_ENV !== "development",
         sameSite: "strict",
-        expires: new Date(new Date().getTime() + 60 * 60 * 1000),
+        expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
         httpOnly: true,
       })
       .send({ user });
@@ -29,8 +29,7 @@ const AuthController = {
   },
   async isLoggedIn(req, res, next) {
     const token = req.cookies.token;
-    console.log(req.cookies.token);
-    console.log(req);
+    
     if (!token) {
       res.status(400).send("no user");
       return;
