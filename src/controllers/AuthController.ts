@@ -18,7 +18,7 @@ const AuthController = {
         secure: process.env.NODE_ENV !== "development",
         sameSite: "None",
         expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
-        httpOnly: true,
+        httpOnly: false,
       }
       )
       .send({ user });
