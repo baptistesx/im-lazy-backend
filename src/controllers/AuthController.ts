@@ -14,12 +14,12 @@ const AuthController = {
     res
       .status(200)
       .cookie("token", token
-      // , {
-      //   secure: process.env.NODE_ENV !== "development",
-      //   sameSite: "strict",
-      //   expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
-      //   httpOnly: true,
-      // }
+      , {
+        secure: process.env.NODE_ENV !== "development",
+        sameSite: "None",
+        expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
+        httpOnly: true,
+      }
       )
       .send({ user });
   },
