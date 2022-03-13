@@ -34,7 +34,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(logger("dev"));
-
+app.set('trust proxy', 1)
 require("./routes")(app, passport);
 
 const port = process.env.PORT || 3100;
