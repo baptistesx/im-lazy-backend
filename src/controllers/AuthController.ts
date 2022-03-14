@@ -16,9 +16,9 @@ const AuthController = {
       .cookie("token", token
       , {
         secure: process.env.NODE_ENV !== "development",
-        sameSite: "None",
+        sameSite: "Strict",
         expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
-        httpOnly: false,
+        httpOnly: true,
       }
       )
       .send({ user });
