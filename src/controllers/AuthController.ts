@@ -24,7 +24,7 @@ const AuthController = {
   },
 
   async signOut(req, res, next) {
-    res.clearCookie("token");
+    res.clearCookie('token', {domain: process.env.NODE_ENV === "production" ? "imlazy.app" : ""});
 
     res.status(200).send();
   },
