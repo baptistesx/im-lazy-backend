@@ -13,15 +13,13 @@ const AuthController = {
 
     res
       .status(200)
-      .cookie("token", token
-      , {
+      .cookie("token", token, {
         secure: process.env.NODE_ENV !== "development",
         sameSite: "Strict",
-        expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
+        expires: new Date(new Date().getTime() + 2 * 60 * 60 * 1000),
         httpOnly: true,
-        domain:"imlazy.app"
-      }
-      )
+        domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "", //TODO: use env var
+      })
       .send({ user });
   },
 
@@ -32,7 +30,7 @@ const AuthController = {
   },
   async isLoggedIn(req, res, next) {
     const token = req.cookies.token;
-    
+
     if (!token) {
       res.status(400).send("no user");
       return;
