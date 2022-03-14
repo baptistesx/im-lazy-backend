@@ -19,6 +19,7 @@ const AuthController = {
         sameSite: "Strict",
         expires: new Date(new Date().getTime() + 2*60 * 60 * 1000),
         httpOnly: true,
+        domain:"imlazy.app"
       }
       )
       .send({ user });
