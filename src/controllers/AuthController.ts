@@ -21,10 +21,16 @@ const AuthController = {
         domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "", //TODO: use env var
       })
       .send({ user });
+
+    user.lastLogin = new Date();
+
+    await user.save();
   },
 
   async signOut(req, res, next) {
-    res.clearCookie('token', {domain: process.env.NODE_ENV === "production" ? "imlazy.app" : ""});
+    res.clearCookie("token", {
+      domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "",
+    });
 
     res.status(200).send();
   },

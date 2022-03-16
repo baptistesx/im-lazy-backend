@@ -18,8 +18,10 @@ module.exports = (sequelize, DataTypes) => {
       password: DataTypes.STRING,
       googleId: DataTypes.STRING,
       provider: DataTypes.STRING,
-      isAdmin: DataTypes.STRING,
-      isPremium: DataTypes.STRING,
+      isAdmin: DataTypes.BOOLEAN,
+      isPremium: DataTypes.BOOLEAN,
+      isEmailVerified: DataTypes.BOOLEAN,
+      lastLogin: DataTypes.DATE,
     },
     {
       sequelize,
