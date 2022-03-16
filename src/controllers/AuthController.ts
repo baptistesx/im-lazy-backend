@@ -1,3 +1,5 @@
+import { isAdmin, isPremium } from "../utils/functions";
+
 const jwt = require("jsonwebtoken");
 
 const User = require("../db/models").User;
@@ -65,7 +67,7 @@ const AuthController = {
     next();
   },
   async isPremium(req, res, next) {
-    if (!req.user.isPremium) {
+    if (!isPremium(req.user)) {
       res.status(400).send("Not allowed, not premium");
       return;
     }
@@ -73,7 +75,7 @@ const AuthController = {
     next();
   },
   async isAdmin(req, res, next) {
-    if (!req.user.isAdmin) {
+    if (!isAdmin(req.user)) {
       res.status(400).send("Not allowed, not admin");
       return;
     }
@@ -90,7 +92,7 @@ const AuthController = {
 
     var id = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!req.user.isAdmin && id != req.body.id) {
+    if (!isAdmin(req.user) && id != req.body.id) {
       res.status(400).send("Not allowed, not admin");
       return;
     }
