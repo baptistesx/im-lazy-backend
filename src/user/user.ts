@@ -37,7 +37,7 @@ export const resetPassword = (req, res, next) => {
 
           sendMail({
             from: "ImLazy app",
-            to: "baba.om@live.fr", //TODO: replace with email
+            to: process.env.EMAIL_TEST ?? user.email,
             subject: "Welcome to ImLazy app!",
             html: `<p>Hi ${capitalizeFirstLetter(req.body.name)},</p>
           <p>Here is your new password (don't hesisate to change it on your profile page): ${randomPassword}</p>
@@ -119,7 +119,7 @@ export const createUser = async (req, res, next) => {
 
         sendMail({
           from: "ImLazy app",
-          to: "baba.om@live.fr", //TODO: replace with email
+          to: process.env.EMAIL_TEST ?? email,
           subject: "Welcome to ImLazy app!",
           html: `<p>Welcome ${capitalizeFirstLetter(
             req.body.name
@@ -178,7 +178,7 @@ export const sendVerificationEmail = async (req, res, next) => {
 
     sendMail({
       from: "ImLazy app",
-      to: "baba.om@live.fr", //TODO: replace with email
+      to: process.env.EMAIL_TEST ?? email,
       subject: "Welcome to ImLazy app!",
       html: `<p>Welcome ${capitalizeFirstLetter(
         req.body.name

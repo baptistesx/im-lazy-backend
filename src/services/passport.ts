@@ -157,7 +157,7 @@ module.exports = function (passport: any) {
 
               sendMail({
                 from: "ImLazy app",
-                to: "baba.om@live.fr", //TODO: replace with email
+                to: process.env.EMAIL_TEST ?? email,
                 subject: "Welcome to ImLazy app!",
                 html: `<p>Welcome ${capitalizeFirstLetter(
                   req.body.name
