@@ -1,3 +1,6 @@
+import { sendMail } from "../services/mails";
+import { capitalizeFirstLetter } from "../utils/functions";
+
 // To generate uuids
 const { v4: uuidV4 } = require("uuid");
 
@@ -71,16 +74,43 @@ export const createUser = async (req, res, next) => {
   const name = req.body.name;
   const role = req.body.role;
 
-  // TODO: generate password and send it by email
+  var randomPassword = Math.random().toString(36).slice(-8);
+
   bcrypt.hash(
-    "imlazy2022",
+    randomPassword,
     saltRounds,
     async function (err: Error, password: string) {
-      const user = await User.build({ email, name, password, role });
+      const emailVerificationString = uuidV4();
 
-      await user.save();
+      try {
+        await User.create({
+          email,
+          name,
+          password,
+          role,
+          emailVerificationString,
+        });
 
-      res.status(200).send();
+        sendMail({
+          from: "ImLazy app",
+          to: "baba.om@live.fr", //TODO: replace with email
+          subject: "Welcome to ImLazy app!",
+          html: `<p>Welcome ${capitalizeFirstLetter(
+            req.body.name
+          )} on ImLazy app !</p>
+        <p>You'll discover all the lazy ressources available !</p>
+        <p>To log in into the app, use your email and this password: ${randomPassword}</p>
+        <p>Last step to verify your account, press <a href="${
+          process.env.API_URL
+        }/verify/${emailVerificationString}">Here</a></p>
+        <p>Enjoy</p>
+        <p>The ImLazy Team</p>`,
+        });
+
+        res.status(200).send();
+      } catch (err) {
+        res.status(401).send();
+      }
     }
   );
 };
