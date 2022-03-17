@@ -103,4 +103,6 @@ module.exports = (app, passport) => {
   app.post("/resetPassword", AuthController.userExists, resetPassword);
 
   app.post("/signOut", AuthController.signOut);
+
+  app.get("/verify/:emailVerificationString", AuthController.verifyEmail)
 };

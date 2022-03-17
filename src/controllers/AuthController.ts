@@ -99,6 +99,23 @@ const AuthController = {
 
     next();
   },
+  async verifyEmail(req, res, next) {
+    const emailVerificationString = req.params.emailVerificationString;
+
+    const user = await User.findOne({ where: { emailVerificationString } });
+
+    if (user) {
+      user.isEmailVerified = true;
+      
+      user.save();
+
+      res.send(
+        `<a href=${process.env.ALLOWED_DOMAIN}>Email well verified, back to the app</a>`
+      );
+    } else {
+      res.send(`An error occured while validating email`);
+    }
+  },
 };
 
 export default AuthController;

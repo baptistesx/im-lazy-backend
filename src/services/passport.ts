@@ -1,4 +1,7 @@
+import { capitalizeFirstLetter } from "../utils/functions";
+import { sendMail } from "./mails";
 const User = require("../db/models").User;
+const { v4: uuidV4 } = require("uuid");
 
 const GoogleTokenStrategy = require("passport-google-token").Strategy;
 var LocalStrategy = require("passport-local");
@@ -143,10 +146,28 @@ module.exports = function (passport: any) {
             password,
             saltRounds,
             async function (err: Error, hash: string) {
+              const emailVerificationString = uuidV4();
+
               const newAccount = await User.create({
                 name: req.body.name,
                 email: email,
                 password: hash,
+                emailVerificationString: emailVerificationString,
+              });
+
+              sendMail({
+                from: "ImLazy app",
+                to: "baba.om@live.fr", //TODO: replace with email
+                subject: "Welcome to ImLazy app!",
+                html: `<p>Welcome ${capitalizeFirstLetter(
+                  req.body.name
+                )} on ImLazy app !</p>
+                <p>You'll discover all the lazy ressources available !</p>
+                <p>Last step to verify your account, press <a href="${
+                  process.env.API_URL
+                }/verify/${emailVerificationString}">Here</a></p>
+                <p>Enjoy</p>
+                <p>The ImLazy Team</p>`,
               });
 
               return done(null, newAccount);
