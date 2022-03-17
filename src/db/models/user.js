@@ -18,8 +18,9 @@ module.exports = (sequelize, DataTypes) => {
       password: DataTypes.STRING,
       googleId: DataTypes.STRING,
       provider: DataTypes.STRING,
-      isAdmin: DataTypes.STRING,
-      isPremium: DataTypes.STRING,
+      role: DataTypes.ENUM("admin", "premium", "classic"),
+      isEmailVerified: DataTypes.BOOLEAN,
+      lastLogin: DataTypes.DATE,
     },
     {
       sequelize,

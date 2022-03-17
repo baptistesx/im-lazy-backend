@@ -49,30 +49,17 @@ export const deleteUserById = async (req, res, next) => {
   }
 };
 
-export const toggleAdminRights = async (req, res, next) => {
-  const id = req.body.id;
-  const user = await User.findOne({ where: { id } });
-
-  user.isAdmin = !user.isAdmin;
-
-  await user.save();
-
-  res.status(200).send();
-};
-
 export const updateUserById = async (req, res, next) => {
   const id = req.body.id;
   const email = req.body.email;
   const name = req.body.name;
-  const isAdmin = req.body.isAdmin;
-  const isPremium = req.body.isPremium;
+  const role = req.body.role;
 
   const user = await User.findOne({ where: { id } });
 
   user.email = email;
   user.name = name;
-  user.isAdmin = isAdmin;
-  user.isPremium = isPremium;
+  user.role = role;
 
   await user.save();
 
@@ -82,12 +69,18 @@ export const updateUserById = async (req, res, next) => {
 export const createUser = async (req, res, next) => {
   const email = req.body.email;
   const name = req.body.name;
-  const isAdmin = req.body.isAdmin;
-  const isPremium = req.body.isPremium;
+  const role = req.body.role;
 
-  const user = await User.build({ email, name, isAdmin, isPremium });
+  // TODO: generate password and send it by email
+  bcrypt.hash(
+    "imlazy2022",
+    saltRounds,
+    async function (err: Error, password: string) {
+      const user = await User.build({ email, name, password, role });
 
-  await user.save();
+      await user.save();
 
-  res.status(200).send();
+      res.status(200).send();
+    }
+  );
 };

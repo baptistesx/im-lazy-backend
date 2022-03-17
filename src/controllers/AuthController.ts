@@ -1,3 +1,5 @@
+import { isAdmin, isPremium } from "../utils/functions";
+
 const jwt = require("jsonwebtoken");
 
 const User = require("../db/models").User;
@@ -15,15 +17,22 @@ const AuthController = {
       .status(200)
       .cookie("token", token, {
         secure: process.env.NODE_ENV !== "development",
-        sameSite: "strict",
-        expires: new Date(new Date().getTime() + 60 * 60 * 1000),
+        sameSite: "Strict",
+        expires: new Date(new Date().getTime() + 2 * 60 * 60 * 1000),
         httpOnly: true,
+        domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "", //TODO: use env var
       })
       .send({ user });
+
+    user.lastLogin = new Date();
+
+    await user.save();
   },
 
   async signOut(req, res, next) {
-    res.clearCookie("token");
+    res.clearCookie("token", {
+      domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "",
+    });
 
     res.status(200).send();
   },
@@ -58,7 +67,7 @@ const AuthController = {
     next();
   },
   async isPremium(req, res, next) {
-    if (!req.user.isPremium) {
+    if (!isPremium(req.user)) {
       res.status(400).send("Not allowed, not premium");
       return;
     }
@@ -66,7 +75,7 @@ const AuthController = {
     next();
   },
   async isAdmin(req, res, next) {
-    if (!req.user.isAdmin) {
+    if (!isAdmin(req.user)) {
       res.status(400).send("Not allowed, not admin");
       return;
     }
@@ -83,7 +92,7 @@ const AuthController = {
 
     var id = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!req.user.isAdmin && id != req.body.id) {
+    if (!isAdmin(req.user) && id != req.body.id) {
       res.status(400).send("Not allowed, not admin");
       return;
     }
