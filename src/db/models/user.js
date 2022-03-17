@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
       role: DataTypes.ENUM("admin", "premium", "classic"),
       isEmailVerified: DataTypes.BOOLEAN,
       lastLogin: DataTypes.DATE,
+      emailVerificationString: DataTypes.STRING,
     },
     {
       sequelize,

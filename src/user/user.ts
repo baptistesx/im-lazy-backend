@@ -1,3 +1,6 @@
+import { sendMail } from "../services/mails";
+import { capitalizeFirstLetter } from "../utils/functions";
+
 // To generate uuids
 const { v4: uuidV4 } = require("uuid");
 
@@ -19,12 +22,38 @@ export const getUser = (req, res, next) => {
 };
 
 export const resetPassword = (req, res, next) => {
-  if (req.user) {
-    //TODO: send a reset password email to user.email
+  const user = req.user;
+  if (user) {
+    var randomPassword = Math.random().toString(36).slice(-8);
+
+    bcrypt.hash(
+      randomPassword,
+      saltRounds,
+      async function (err: Error, password: string) {
+        try {
+          user.password = password;
+
+          await user.save();
+
+          sendMail({
+            from: "ImLazy app",
+            to: "baba.om@live.fr", //TODO: replace with email
+            subject: "Welcome to ImLazy app!",
+            html: `<p>Hi ${capitalizeFirstLetter(req.body.name)},</p>
+          <p>Here is your new password (don't hesisate to change it on your profile page): ${randomPassword}</p>
+          <p>Enjoy</p>
+          <p>The ImLazy Team</p>`,
+          });
+
+          res.status(200).send();
+        } catch (err) {
+          res.status(401).send();
+        }
+      }
+    );
+  } else {
+    res.status(500).send();
   }
-  //Don't send an error message if email is invalid, in case of hacker,
-  // he cannot know if the email input is valid
-  res.status(200).send();
 };
 
 export const getUsers = async (req, res, next) => {
@@ -71,16 +100,99 @@ export const createUser = async (req, res, next) => {
   const name = req.body.name;
   const role = req.body.role;
 
-  // TODO: generate password and send it by email
+  var randomPassword = Math.random().toString(36).slice(-8);
+
   bcrypt.hash(
-    "imlazy2022",
+    randomPassword,
     saltRounds,
     async function (err: Error, password: string) {
-      const user = await User.build({ email, name, password, role });
+      const emailVerificationString = uuidV4();
 
-      await user.save();
+      try {
+        await User.create({
+          email,
+          name,
+          password,
+          role,
+          emailVerificationString,
+        });
 
-      res.status(200).send();
+        sendMail({
+          from: "ImLazy app",
+          to: "baba.om@live.fr", //TODO: replace with email
+          subject: "Welcome to ImLazy app!",
+          html: `<p>Welcome ${capitalizeFirstLetter(
+            req.body.name
+          )} on ImLazy app !</p>
+          <p>You'll discover all the lazy ressources available !</p>
+          <p>Last step to verify your account, press <a href="${
+            process.env.API_URL
+          }/verify/${emailVerificationString}">Here</a></p>
+          <p>Enjoy</p>
+          <p>The ImLazy Team</p>`,
+        });
+
+        res.status(200).send();
+      } catch (err) {
+        res.status(401).send();
+      }
     }
   );
+};
+
+export const updateUserPasswordById = async (req, res, next) => {
+  const user = req.user;
+
+  bcrypt.compare(
+    req.body.currentPassword,
+    user.password,
+    function (err: Error, isMatch: boolean) {
+      if (!isMatch) {
+        return res.status(401).send();
+      }
+
+      bcrypt.hash(
+        req.body.newPassword,
+        saltRounds,
+        async function (err: Error, password: string) {
+          user.password = password;
+
+          user.save();
+          res.status(200).send();
+        }
+      );
+    }
+  );
+};
+
+export const sendVerificationEmail = async (req, res, next) => {
+  const email = req.body.email;
+
+  const emailVerificationString = uuidV4();
+
+  try {
+    const user = await User.findOne({ where: { email } });
+
+    user.emailVerificationString = emailVerificationString;
+    user.save();
+
+    sendMail({
+      from: "ImLazy app",
+      to: "baba.om@live.fr", //TODO: replace with email
+      subject: "Welcome to ImLazy app!",
+      html: `<p>Welcome ${capitalizeFirstLetter(
+        req.body.name
+      )} on ImLazy app !</p>
+        <p>You'll discover all the lazy ressources available !</p>
+        <p>Last step to verify your account, press <a href="${
+          process.env.API_URL
+        }/verify/${emailVerificationString}">Here</a></p>
+        <p>Enjoy</p>
+        <p>The ImLazy Team</p>`,
+    });
+
+    res.status(200).send();
+  } catch (err) {
+    res.status(401).send();
+  }
 };

@@ -14,8 +14,10 @@ const getUser = require("../user/index").getUser;
 const resetPassword = require("../user/index").resetPassword;
 const getUsers = require("../user/index").getUsers;
 const updateUserById = require("../user/index").updateUserById;
+const updateUserPasswordById = require("../user/index").updateUserPasswordById;
 const createUser = require("../user/index").createUser;
 const deleteUserById = require("../user/index").deleteUserById;
+const sendVerificationEmail = require("../user/index").sendVerificationEmail;
 
 module.exports = (app, passport) => {
   // Workaway Bot Routes
@@ -103,4 +105,18 @@ module.exports = (app, passport) => {
   app.post("/resetPassword", AuthController.userExists, resetPassword);
 
   app.post("/signOut", AuthController.signOut);
+
+  app.get("/verify/:emailVerificationString", AuthController.verifyEmail);
+
+  app.put(
+    "/user/:id/password",
+    AuthController.isLoggedIn,
+    updateUserPasswordById
+  );
+
+  app.post(
+    "/user/verificationEmail",
+    AuthController.userExists,
+    sendVerificationEmail
+  );
 };
