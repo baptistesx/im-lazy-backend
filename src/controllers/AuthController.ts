@@ -113,7 +113,9 @@ const AuthController = {
         `<a href=${process.env.ALLOWED_DOMAIN}>Email well verified, back to the app</a>`
       );
     } else {
-      res.send(`An error occured while validating email`);
+      res.send(
+        `An error occured while validating email, you might have received a more recent email.`
+      );
     }
   },
 };

@@ -1,4 +1,3 @@
-import { getUser } from "./user";
 // user/index.ts
 var user = require("./user");
 
@@ -10,5 +9,6 @@ module.exports = {
   getCompanies: user.getCompanies,
   updateUserById: user.updateUserById,
   createUser: user.createUser,
-  updateUserPasswordById: user.updateUserPasswordById
+  updateUserPasswordById: user.updateUserPasswordById,
+  sendVerificationEmail: user.sendVerificationEmail,
 };
