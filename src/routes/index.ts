@@ -14,6 +14,7 @@ const getUser = require("../user/index").getUser;
 const resetPassword = require("../user/index").resetPassword;
 const getUsers = require("../user/index").getUsers;
 const updateUserById = require("../user/index").updateUserById;
+const updateUserPasswordById = require("../user/index").updateUserPasswordById;
 const createUser = require("../user/index").createUser;
 const deleteUserById = require("../user/index").deleteUserById;
 
@@ -104,5 +105,11 @@ module.exports = (app, passport) => {
 
   app.post("/signOut", AuthController.signOut);
 
-  app.get("/verify/:emailVerificationString", AuthController.verifyEmail)
+  app.get("/verify/:emailVerificationString", AuthController.verifyEmail);
+
+  app.put(
+    "/user/:id/password",
+    AuthController.isLoggedIn,
+    updateUserPasswordById
+  );
 };

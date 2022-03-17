@@ -114,3 +114,28 @@ export const createUser = async (req, res, next) => {
     }
   );
 };
+
+export const updateUserPasswordById = async (req, res, next) => {
+  const user = req.user;
+
+  bcrypt.compare(
+    req.body.currentPassword,
+    user.password,
+    function (err: Error, isMatch: boolean) {
+      if (!isMatch) {
+        return res.status(401).send();
+      }
+
+      bcrypt.hash(
+        req.body.newPassword,
+        saltRounds,
+        async function (err: Error, password: string) {
+          user.password = password;
+
+          user.save();
+          res.status(200).send();
+        }
+      );
+    }
+  );
+};

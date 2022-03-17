@@ -106,7 +106,7 @@ const AuthController = {
 
     if (user) {
       user.isEmailVerified = true;
-      
+
       user.save();
 
       res.send(

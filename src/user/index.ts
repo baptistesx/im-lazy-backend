@@ -10,4 +10,5 @@ module.exports = {
   getCompanies: user.getCompanies,
   updateUserById: user.updateUserById,
   createUser: user.createUser,
+  updateUserPasswordById: user.updateUserPasswordById
 };
