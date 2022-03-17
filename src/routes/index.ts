@@ -15,7 +15,6 @@ const resetPassword = require("../user/index").resetPassword;
 const getUsers = require("../user/index").getUsers;
 const updateUserById = require("../user/index").updateUserById;
 const createUser = require("../user/index").createUser;
-const toggleAdminRights = require("../user/index").toggleAdminRights;
 const deleteUserById = require("../user/index").deleteUserById;
 
 module.exports = (app, passport) => {
@@ -73,12 +72,6 @@ module.exports = (app, passport) => {
     "/users",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     getUsers
-  );
-
-  app.put(
-    "/toggleAdminRights",
-    [AuthController.isLoggedIn, AuthController.isAdmin],
-    toggleAdminRights
   );
 
   app.delete(
