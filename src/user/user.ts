@@ -1,5 +1,6 @@
 import { sendMail } from "../services/mails";
 import { capitalizeFirstLetter } from "../utils/functions";
+const Payment = require("../db/models").Payment;
 
 // To generate uuids
 const { v4: uuidV4 } = require("uuid");
@@ -191,6 +192,21 @@ export const sendVerificationEmail = async (req, res, next) => {
         <p>The ImLazy Team</p>`,
     });
 
+    res.status(200).send();
+  } catch (err) {
+    res.status(401).send();
+  }
+};
+
+export const savePayment = async (req, res, next) => {
+  const user = req.user;
+
+  await Payment.create({
+    userId: user.id,
+    details: req.body.paymentResume,
+  });
+
+  try {
     res.status(200).send();
   } catch (err) {
     res.status(401).send();

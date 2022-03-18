@@ -11,4 +11,5 @@ module.exports = {
   createUser: user.createUser,
   updateUserPasswordById: user.updateUserPasswordById,
   sendVerificationEmail: user.sendVerificationEmail,
+  savePayment: user.savePayment,
 };

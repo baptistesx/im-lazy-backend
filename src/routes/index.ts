@@ -18,6 +18,7 @@ const updateUserPasswordById = require("../user/index").updateUserPasswordById;
 const createUser = require("../user/index").createUser;
 const deleteUserById = require("../user/index").deleteUserById;
 const sendVerificationEmail = require("../user/index").sendVerificationEmail;
+const savePayment = require("../user/index").savePayment;
 
 module.exports = (app, passport) => {
   // Workaway Bot Routes
@@ -118,5 +119,11 @@ module.exports = (app, passport) => {
     "/user/verificationEmail",
     AuthController.userExists,
     sendVerificationEmail
+  );
+
+  app.post(
+    "/user/savePayment",
+    [AuthController.isLoggedIn, AuthController.isNotPremium],
+    savePayment
   );
 };
