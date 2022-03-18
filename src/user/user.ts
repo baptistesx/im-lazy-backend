@@ -206,6 +206,9 @@ export const savePayment = async (req, res, next) => {
     details: req.body.paymentResume,
   });
 
+  user.role = "premium";
+  user.save();
+
   try {
     res.status(200).send();
   } catch (err) {
