@@ -34,7 +34,7 @@ const AuthController = {
       domain: process.env.NODE_ENV === "production" ? "imlazy.app" : "",
     });
 
-    res.status(200).send();
+    res.status(200).send({ user: {} });
   },
   async isLoggedIn(req, res, next) {
     const token = req.cookies.token;
@@ -98,12 +98,22 @@ const AuthController = {
       return;
     }
 
-    var id = jwt.verify(token, process.env.JWT_SECRET);
+    var requestingUserId = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!isAdmin(req.user) && id != req.body.id) {
+    const userRequestingUpdate = await User.findOne({
+      where: { id: requestingUserId },
+    });
+
+    const userToUpdate = await User.findOne({ where: { id: req.body.id } });
+
+    if (
+      !isAdmin(userRequestingUpdate) &&
+      userToUpdate.id != userRequestingUpdate.id
+    ) {
       res.status(400).send("Not allowed, not admin");
       return;
     }
+    req.user = userToUpdate;
 
     next();
   },

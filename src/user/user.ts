@@ -19,7 +19,7 @@ const { Client } = require("pg");
 const User = require("../db/models").User;
 
 export const getUser = (req, res, next) => {
-  res.status(200).send(req?.user);
+  res.status(200).send({ user: req?.user });
 };
 
 export const resetPassword = (req, res, next) => {
@@ -80,16 +80,17 @@ export const deleteUserById = async (req, res, next) => {
 };
 
 export const updateUserById = async (req, res, next) => {
-  const id = req.body.id;
   const email = req.body.email;
   const name = req.body.name;
   const role = req.body.role;
 
-  const user = await User.findOne({ where: { id } });
+  const user = req.user;
 
   user.email = email;
   user.name = name;
-  user.role = role;
+  if (role !== undefined) {
+    user.role = role;
+  }
 
   await user.save();
 

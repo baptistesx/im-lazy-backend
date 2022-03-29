@@ -23,37 +23,37 @@ const savePayment = require("../user/index").savePayment;
 module.exports = (app, passport) => {
   // Workaway Bot Routes
   app.post(
-    "/startBot",
+    "/workaway-bot/start-bot",
     [AuthController.isLoggedIn, AuthController.isPremium],
     startBot
   );
   app.get(
-    "/stopBot",
+    "/workaway-bot/stop-bot",
     [AuthController.isLoggedIn, AuthController.isPremium],
     stopBot
   );
   app.get(
-    "/clearLogs",
+    "/workaway-bot/clear-logs",
     [AuthController.isLoggedIn, AuthController.isPremium],
     clearLogs
   );
   app.post(
-    "/setCity",
+    "/workaway-bot/set-city",
     [AuthController.isLoggedIn, AuthController.isPremium],
     setCity
   );
   app.get(
-    "/filesName",
+    "/workaway-bot/files-name",
     [AuthController.isLoggedIn, AuthController.isPremium],
     getFilesName
   );
   app.get(
-    "/file/:name",
+    "/workaway-bot/file/:name",
     [AuthController.isLoggedIn, AuthController.isPremium],
     getFile
   );
   app.delete(
-    "/file/:name",
+    "/workaway-bot/file/:name",
     [AuthController.isLoggedIn, AuthController.isPremium],
     deleteFile
   );
@@ -72,7 +72,7 @@ module.exports = (app, passport) => {
   );
 
   app.get(
-    "/users",
+    "/user/users",
     [AuthController.isLoggedIn, AuthController.isAdmin],
     getUsers
   );
@@ -83,29 +83,29 @@ module.exports = (app, passport) => {
     deleteUserById
   );
 
-  app.get("/user", AuthController.isLoggedIn, getUser);
+  app.get("/auth/user", AuthController.isLoggedIn, getUser);
 
   app.post(
-    "/signInWithGoogle",
+    "/auth/sign-in-with-google",
     passport.authenticate("google-token", { session: false }),
     AuthController.signIn
   );
 
   app.post(
-    "/signInWithEmailAndPassword",
+    "/auth/sign-in-with-email-and-password",
     passport.authenticate("local-signin", { session: false }),
     AuthController.signIn
   );
 
   app.post(
-    "/signUp",
+    "/auth/sign-up",
     passport.authenticate("local-signup", { session: false }),
     AuthController.signIn
   );
 
-  app.post("/resetPassword", AuthController.userExists, resetPassword);
+  app.post("/user/reset-password", AuthController.userExists, resetPassword);
 
-  app.post("/signOut", AuthController.signOut);
+  app.post("/auth/sign-out", AuthController.signOut);
 
   app.get("/verify/:emailVerificationString", AuthController.verifyEmail);
 
@@ -116,13 +116,13 @@ module.exports = (app, passport) => {
   );
 
   app.post(
-    "/user/verificationEmail",
+    "/user/send-verification-email",
     AuthController.userExists,
     sendVerificationEmail
   );
 
   app.post(
-    "/user/savePayment",
+    "/user/save-payment",
     [AuthController.isLoggedIn, AuthController.isNotPremium],
     savePayment
   );

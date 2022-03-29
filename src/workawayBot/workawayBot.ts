@@ -303,7 +303,9 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     }`
   );
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SCRAPPING (ONLY MEMBERS IN THE AGE RANGE)...`);
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ START SCRAPPING (ONLY MEMBERS IN THE AGE RANGE)...`
+  );
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
@@ -497,7 +499,7 @@ export const getFilesName = (req, res, next) => {
     .readdirSync("./dist")
     .filter((file) => file.includes("json"));
 
-  res.send(filesName);
+  res.send({ filesName });
 };
 
 export const deleteFile = (req, res, next) => {
@@ -523,12 +525,12 @@ export const deleteFile = (req, res, next) => {
 export const getFile = (req, res, next) => {
   var filePath = `./dist/${req.params.name}`;
 
-  fs.readFile(filePath, "utf8", (err, data) => {
+  fs.readFile(filePath, "utf8", (err, file) => {
     if (err) {
       res.send("ko");
       console.error(err);
       return;
     }
-    res.json(data);
+    res.json({ file });
   });
 };
