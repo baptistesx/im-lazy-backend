@@ -4,6 +4,8 @@ const sleep = require(`${__dirname}/utils`).sleep;
 // Function to get integers in a range
 const range = require(`${__dirname}/utils`).range;
 
+const File = require("../db/models").File;
+
 // To navigate in browser and automation (bot)
 const puppeteer = require("puppeteer");
 
@@ -68,14 +70,28 @@ const terminateBot = async () => {
 
 // Start bot
 export const startBot = async (req, res, next) => {
+  const { user, body } = req;
+  const {
+    headless,
+    developmentMode,
+    email,
+    password,
+    city,
+    detectionRadius,
+    messageSubject,
+    englishMessage,
+    frenchMessage,
+    minimumAge,
+    maximumAge,
+  } = body;
   // Reset citySelected, maybe not empty if the bot has already been launched before
   citySelected = "";
 
   res.send("Bot started");
 
-  await saveParamsToFile(req.body);
+  await saveParamsToFile({ params: body, userId: user.id });
 
-  await openBrowser(req.body.headless, req.body.developmentMode);
+  await openBrowser(headless, developmentMode);
 
   if (shouldStopBot) {
     await terminateBot();
@@ -91,7 +107,7 @@ export const startBot = async (req, res, next) => {
 
   await openLoginForm();
 
-  await login(req.body.email, req.body.password);
+  await login(email, password);
 
   if (shouldStopBot) {
     await terminateBot();
@@ -100,20 +116,27 @@ export const startBot = async (req, res, next) => {
 
   await moveToMeetupSection();
 
-  await setSearchParams(req.body.city, req.body.detectionRadius);
+  await setSearchParams(city, detectionRadius);
 
   if (shouldStopBot) {
     await terminateBot();
     return;
   }
 
+  const resultFile = await File.create({
+    userId: user.id,
+    name: `${city}${process.env.RESULT_FILENAME_SUFFIX}`,
+    content: "{}",
+  });
+
   // TODO: there is maybe a better way to do that: interrupt current function StartBot if shouldStopBot variable pass to true in scrapMembers.
   // Same situation for sendMessageToMembers
   let shouldStop = await scrapMembers(
     page,
-    req.body.minimumAge,
-    req.body.maximumAge,
-    req.body.city
+    minimumAge,
+    maximumAge,
+    city,
+    resultFile
   );
   if (shouldStopBot) {
     await terminateBot();
@@ -122,11 +145,12 @@ export const startBot = async (req, res, next) => {
 
   shouldStop = await sendMessageToMembers(
     page,
-    req.body.messageSubject,
-    req.body.englishMessage,
-    req.body.frenchMessage,
-    req.body.city,
-    req.body.developmentMode
+    messageSubject,
+    englishMessage,
+    frenchMessage,
+    city,
+    developmentMode,
+    resultFile
   );
   if (shouldStopBot) {
     await terminateBot();
@@ -159,14 +183,14 @@ const logAndEmitToRoom = (logString, isSendingMessagesSentCounter = false) => {
 };
 
 // Save form params entered by the client into a file
-const saveParamsToFile = async (params) => {
-  await fs.writeFile(process.env.PARAMS_FILE, JSON.stringify(params), (err) => {
-    if (err) {
-      throw err;
-    }
-
-    logAndEmitToRoom(`${getCurrentDateTime()} ➤ PARAMS FILE WRITTEN`);
+const saveParamsToFile = async ({ params, userId }) => {
+  await File.create({
+    userId: userId,
+    name: process.env.PARAMS_FILENAME,
+    content: JSON.stringify(params),
   });
+
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ PARAMS FILE WRITTEN`);
 };
 
 const openBrowser = async (isHeadless, isDevelopmentMode) => {
@@ -283,7 +307,7 @@ const setSearchParams = async (city, detectionRadius) => {
 };
 
 // Scrap members displayed on the page
-const scrapMembers = async (page, minAge, maxAge, city) => {
+const scrapMembers = async (page, minAge, maxAge, city, resultFile) => {
   // Get all members profile page url (present on the page)
   // TODO: check other page if pagination exists (in order to scrap members on the next pages)
   const profilesHrefs = await page.$$eval("a", (hrefs) =>
@@ -377,20 +401,12 @@ const scrapMembers = async (page, minAge, maxAge, city) => {
     } MEMBERS IN THE AGE RANGE`
   );
 
-  // TODO: add specific client id or something in order to render this file accessible only by this client
-  // TODO: save this file somewhere else?
-  const resultFile = `dist/${city}_members.json`;
-
-  await fs.writeFile(
-    resultFile,
-    JSON.stringify({ members: membersDataScrapped }),
-    (err) => {
-      if (err) throw err;
-
-      logAndEmitToRoom(
-        `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile}`
-      );
-    }
+  resultFile.content = JSON.stringify({ members: membersDataScrapped });
+  console.log(resultFile.content);
+  await resultFile.save();
+  console.log("RESULT FILE SAVED");
+  logAndEmitToRoom(
+    `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile.name}`
   );
 };
 
@@ -401,7 +417,8 @@ const sendMessageToMembers = async (
   englishMessage,
   frenchMessage,
   city,
-  developmentMode
+  developmentMode,
+  resultFile
 ) => {
   logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SENDING MESSAGES`);
 
@@ -437,24 +454,18 @@ const sendMessageToMembers = async (
 
       await page.waitForTimeout(1000);
 
-      const resultFile = `dist/${city}_members.json`;
+      resultFile.content = JSON.stringify({ members: membersDataScrapped });
+      await resultFile.save();
 
-      await fs.writeFile(
-        resultFile,
-        JSON.stringify({ members: membersDataScrapped }),
-        (err) => {
-          if (err) throw err;
-          const indexWithOffset = parseInt(index) + 1;
+      const indexWithOffset = parseInt(index) + 1;
 
-          // TODO: check issue with index and message, no index 1-2/membersDataScrapped.length
-          // and membersDataScrapped.length/membersDataScrapped.length displayed twice
-          logAndEmitToRoom(
-            `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
-              membersDataScrapped.length
-            } MESSAGES SENT`,
-            true
-          );
-        }
+      // TODO: check issue with index and message, no index 1-2/membersDataScrapped.length
+      // and membersDataScrapped.length/membersDataScrapped.length displayed twice
+      logAndEmitToRoom(
+        `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
+          membersDataScrapped.length
+        } MESSAGES SENT`,
+        true
       );
     }
   }
@@ -494,43 +505,42 @@ export const setCity = async (req, res, next) => {
   citySelected = req.body.city;
 };
 
-export const getFilesName = (req, res, next) => {
-  const filesName = fs
-    .readdirSync("./dist")
-    .filter((file) => file.includes("json"));
-
-  res.send({ filesName });
-};
-
-export const deleteFile = (req, res, next) => {
-  try {
-    fs.unlinkSync(`./dist/${req.params.name}`);
-
-    logAndEmitToRoom(
-      `${getCurrentDateTime()} ➤ /dist/${req.params.name} WELL DELETED`
-    );
-
-    res.send("ok");
-  } catch (err) {
-    logAndEmitToRoom(
-      `${getCurrentDateTime()} ➤ FAILED TO DELETE /dist/${req.params.name}`
-    );
-
-    res.send("ko");
-
-    console.error(err);
-  }
-};
-
-export const getFile = (req, res, next) => {
-  var filePath = `./dist/${req.params.name}`;
-
-  fs.readFile(filePath, "utf8", (err, file) => {
-    if (err) {
-      res.send("ko");
-      console.error(err);
-      return;
-    }
-    res.json({ file });
+export const getFilesInfo = async (req, res, next) => {
+  const files = await File.findAll({
+    where: { userId: req.user.id },
   });
+  const reducedFiles = files.map((file) => {
+    return {
+      id: file.id,
+      name: file.name,
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+    };
+  });
+
+  res.send({ files: reducedFiles });
+};
+
+export const deleteFile = async (req, res, next) => {
+  const { user, params } = req;
+
+  const file = await File.findOne({
+    where: { userId: user.id, id: params.id },
+  });
+
+  file.destroy();
+
+  logAndEmitToRoom(`${getCurrentDateTime()} ➤ ${params.name} WELL DELETED`);
+
+  res.send("ok");
+};
+
+export const getFile = async (req, res, next) => {
+  const { user, params } = req;
+
+  const file = await File.findOne({
+    where: { userId: user.id, id: params.id },
+  });
+
+  res.json({ file: { name: file.name, content: file.content } });
 };

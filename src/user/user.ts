@@ -48,7 +48,7 @@ export const resetPassword = (req, res, next) => {
 
           res.status(200).send();
         } catch (err) {
-          res.status(401).send();
+          res.status(500).send();
         }
       }
     );
@@ -136,7 +136,7 @@ export const createUser = async (req, res, next) => {
 
         res.status(200).send();
       } catch (err) {
-        res.status(401).send();
+        res.status(500).send();
       }
     }
   );
@@ -150,7 +150,7 @@ export const updateUserPasswordById = async (req, res, next) => {
     user.password,
     function (err: Error, isMatch: boolean) {
       if (!isMatch) {
-        return res.status(401).send();
+        return res.status(400).send();
       }
 
       bcrypt.hash(
@@ -195,7 +195,7 @@ export const sendVerificationEmail = async (req, res, next) => {
 
     res.status(200).send();
   } catch (err) {
-    res.status(401).send();
+    res.status(500).send();
   }
 };
 
@@ -213,6 +213,6 @@ export const savePayment = async (req, res, next) => {
   try {
     res.status(200).send();
   } catch (err) {
-    res.status(401).send();
+    res.status(500).send();
   }
 };

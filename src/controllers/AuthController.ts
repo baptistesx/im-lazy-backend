@@ -8,7 +8,7 @@ const AuthController = {
   async signIn(req, res, next) {
     const { user } = req;
     if (!user) {
-      return res.status(401).send({ error: "User was not authenticated" });
+      return res.status(400).send({ error: "User was not authenticated" });
     }
 
     const token = jwt.sign(user.id, process.env.JWT_SECRET);
@@ -40,7 +40,9 @@ const AuthController = {
     const token = req.cookies.token;
 
     if (!token) {
-      res.status(400).send("no user");
+      res.clearCookie("token");
+
+      res.status(401).send("no user");
       return;
     }
 

@@ -4,7 +4,7 @@ const startBot = require("../workawayBot/index").startBot;
 const clearLogs = require("../workawayBot/index").clearLogs;
 const stopBot = require("../workawayBot/index").stopBot;
 const setCity = require("../workawayBot/index").setCity;
-const getFilesName = require("../workawayBot/index").getFilesName;
+const getFilesInfo = require("../workawayBot/index").getFilesInfo;
 const getFile = require("../workawayBot/index").getFile;
 const deleteFile = require("../workawayBot/index").deleteFile;
 const initSocket = require("../workawayBot/index").initSocket;
@@ -43,17 +43,17 @@ module.exports = (app, passport) => {
     setCity
   );
   app.get(
-    "/workaway-bot/files-name",
+    "/workaway-bot/files-info",
     [AuthController.isLoggedIn, AuthController.isPremium],
-    getFilesName
+    getFilesInfo
   );
   app.get(
-    "/workaway-bot/file/:name",
+    "/workaway-bot/file/:id",
     [AuthController.isLoggedIn, AuthController.isPremium],
     getFile
   );
   app.delete(
-    "/workaway-bot/file/:name",
+    "/workaway-bot/file/:id",
     [AuthController.isLoggedIn, AuthController.isPremium],
     deleteFile
   );

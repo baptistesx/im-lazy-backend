@@ -8,7 +8,7 @@ module.exports = {
   clearLogs: workawayBot.clearLogs,
   stopBot: workawayBot.stopBot,
   setCity: workawayBot.setCity,
-  getFilesName: workawayBot.getFilesName,
+  getFilesInfo: workawayBot.getFilesInfo,
   deleteFile: workawayBot.deleteFile,
   getFile: workawayBot.getFile,
 };
