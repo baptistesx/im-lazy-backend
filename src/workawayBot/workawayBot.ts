@@ -246,7 +246,6 @@ const openBrowser = async (userId, isHeadless, isDevelopmentMode) => {
     args: ["--no-sandbox"],
   });
 
-  console.log(browsers);
   let str = `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`;
 
   await logAndEmitToRoom(userId, str);
@@ -396,7 +395,6 @@ const scrapMembers = async (userId, page, minAge, maxAge, resultFile) => {
   const profilesHrefs = await page.$$eval("a", (hrefs) =>
     hrefs.map((a) => a.href).filter((link) => link.includes("/en/workawayer/"))
   );
-  console.log("HHEEERRRR 3");
 
   // TODO: check why there are duplicate profiles
   // Remove duplicate using temporary Set
@@ -498,9 +496,8 @@ const scrapMembers = async (userId, page, minAge, maxAge, resultFile) => {
     ...JSON.parse(resultFile.content),
     members: membersDataScrapped[userId],
   });
-  console.log(resultFile.content);
+
   await resultFile.save();
-  console.log("RESULT FILE SAVED");
   await logAndEmitToRoom(
     userId,
     `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile.name}`
@@ -648,7 +645,7 @@ export const getFilesInfo = async (req, res, next) => {
 
 export const deleteFile = async (req, res, next) => {
   const { user, params } = req;
-  console.log("waaaaants to delete: ", parseInt(params.id), user.id);
+
   const file = await File.findOne({
     where: { userId: user.id, id: parseInt(params.id) },
   });
