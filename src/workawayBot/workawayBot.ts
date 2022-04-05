@@ -14,35 +14,33 @@ const fs = require("fs");
 
 // Get the io instance initialized in main.ts
 let io = require("../main").io;
-// Socket room id to not loose logs if quit and come back on the bot logs page
-// TODO: improve this to have a room per user or better system
-const roomId = "1234";
 
 // Browser that puppeteer will use to navigate
-let browser;
+let browsers = {};
 // Page opened in browser on which puppeteer will navigate
-let page;
+let pages = {};
 
 // Array of members scrapped in the perimeter around the city passed as parameter
-let membersDataScrapped = [];
+let membersDataScrapped = {};
 
 // Array of log strings
-let logs = [];
+// let logs = [];
 
 // Boolean variable checked frequently to know if bot should stop
 // TODO: maybe there is a better way to do this. Maybe with a timer ?
-let shouldStopBot = false;
+let shouldStopBot = {};
 
 // The user enters a city name or part of on the frontend app,
 // The backend get on the page all city/country couples proposed and send them to the client
 // citySelected is the couple finally selected by the client
-let citySelected = "";
+let citySelected = {};
 
 export const initSocket = async (socket) => {
-  socket.join(roomId);
+  const userId = socket.handshake.query.userId;
+  socket.join(userId);
 
   console.log(
-    `${socket.id} connected and joined room ${roomId} ${getCurrentDateTime()}`
+    `${socket.id} connected and joined room ${userId} ${getCurrentDateTime()}`
   );
 
   // Join a conversation
@@ -50,22 +48,35 @@ export const initSocket = async (socket) => {
     "connection",
     `${getCurrentDateTime()} ➤ CONNECTED TO BACKEND API`
   );
+  try {
+    const resultFile = await File.findOne({
+      where: {
+        userId: userId,
+        name: process.env.SESSION_FILENAME,
+      },
+      order: [["createdAt", "DESC"]],
+    }).then((file) => JSON.parse(file));
 
-  // Send logs when requested
-  socket.emit("botLogs", logs);
+    // Send logs when requested
+    socket.emit("botLogs", resultFile.content.logs);
+  } catch (e) {
+    socket.emit("botLogs", []);
+  }
 
   // Leave the room if the user closes the socket
   socket.on("disconnect", () => {
-    socket.leave(roomId);
+    socket.leave(userId);
   });
 };
 
-const terminateBot = async () => {
-  shouldStopBot = false;
+const terminateBot = async (userId) => {
+  shouldStopBot[userId] = false;
 
-  await closeBrowser(browser);
+  await closeBrowser(userId);
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+  await logAndEmitToRoom(userId, `${getCurrentDateTime()} ➤ BOT WELL STOPPED`);
+
+  io.to(userId.toString()).emit("botStopped");
 };
 
 // Start bot
@@ -85,234 +96,307 @@ export const startBot = async (req, res, next) => {
     maximumAge,
   } = body;
   // Reset citySelected, maybe not empty if the bot has already been launched before
-  citySelected = "";
+  citySelected[user.id] = "";
+  shouldStopBot[user.id] = false;
+  membersDataScrapped[user.id] = [];
 
-  res.send("Bot started");
+  try {
+    res.send("Bot started");
 
-  await saveParamsToFile({ params: body, userId: user.id });
+    await saveParamsToFile({ params: body, userId: user.id });
 
-  await openBrowser(headless, developmentMode);
+    await openBrowser(user.id, headless, developmentMode);
 
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
+    if (shouldStopBot[user.id]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    await openPage(user.id);
+
+    if (shouldStopBot[user.id]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    await openLoginForm(user.id);
+
+    await login(user.id, email, password);
+
+    if (shouldStopBot[user.id]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    await moveToMeetupSection(user.id);
+
+    await setSearchParams(user.id, city, detectionRadius);
+
+    if (shouldStopBot[user.id]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    const resultFile = await File.findOne({
+      where: {
+        userId: user.id,
+        name: process.env.SESSION_FILENAME,
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    // TODO: there is maybe a better way to do that: interrupt current function StartBot if shouldStopBot variable pass to true in scrapMembers.
+    // Same situation for sendMessageToMembers
+    shouldStopBot[user.id] = await scrapMembers(
+      user.id,
+      pages[user.id],
+      minimumAge,
+      maximumAge,
+      resultFile
+    );
+    if ([shouldStopBot[user.id]]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    shouldStopBot[user.id] = await sendMessageToMembers(
+      user.id,
+      pages[user.id],
+      messageSubject,
+      englishMessage,
+      frenchMessage,
+      city,
+      developmentMode,
+      resultFile
+    );
+    if (shouldStopBot[user.id]) {
+      await terminateBot(user.id);
+      return;
+    }
+
+    await closeBrowser(user.id);
+  } catch (err) {
+    await logAndEmitToRoom(
+      user.id,
+      `${getCurrentDateTime()} ➤ AN ERROR OCCURED : ${err}`
+    );
+    terminateBot(user.id);
   }
-
-  await openPage();
-
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
-  }
-
-  await openLoginForm();
-
-  await login(email, password);
-
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
-  }
-
-  await moveToMeetupSection();
-
-  await setSearchParams(city, detectionRadius);
-
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
-  }
-
-  const resultFile = await File.create({
-    userId: user.id,
-    name: `${city}${process.env.RESULT_FILENAME_SUFFIX}`,
-    content: "{}",
-  });
-
-  // TODO: there is maybe a better way to do that: interrupt current function StartBot if shouldStopBot variable pass to true in scrapMembers.
-  // Same situation for sendMessageToMembers
-  let shouldStop = await scrapMembers(
-    page,
-    minimumAge,
-    maximumAge,
-    city,
-    resultFile
-  );
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
-  }
-
-  shouldStop = await sendMessageToMembers(
-    page,
-    messageSubject,
-    englishMessage,
-    frenchMessage,
-    city,
-    developmentMode,
-    resultFile
-  );
-  if (shouldStopBot) {
-    await terminateBot();
-    return;
-  }
-
-  await closeBrowser(browser);
-
-  //TODO: announce to the client the work is done then he can set isRunning to false
-  // io.to(roomId).emit("done", `${getCurrentDateTime()} ➤ WORK DONE`);
 };
 
 // Save logString in global logs variable and send it to the client
 
-const logAndEmitToRoom = (logString, isSendingMessagesSentCounter = false) => {
+const logAndEmitToRoom = async (
+  userId,
+  logString,
+  isSendingMessagesSentCounter = false
+) => {
   console.log(logString);
+
+  const resultFile = await File.findOne({
+    where: {
+      userId: userId,
+      name: process.env.SESSION_FILENAME,
+    },
+    order: [["createdAt", "DESC"]],
+  });
+  resultFile.content = JSON.parse(resultFile.content);
 
   if (isSendingMessagesSentCounter) {
     // If isSendingMessagesSentCounter = true, it means the string contains a counter, example: 10/34 messages send
     // It allows on the client logs to display a counter on the same line
-    logs = [...logs.slice(0, -1), logString];
+    resultFile.content.logs = [
+      ...resultFile.content.logs.slice(0, -1),
+      logString,
+    ];
+    resultFile.content = JSON.stringify(resultFile.content);
+    resultFile.save();
 
-    io.to(roomId).emit("botLogsMessageSent", logString);
+    io.to(userId.toString()).emit("botLogsMessageSent", logString);
   } else {
+    if (resultFile.content.logs === undefined) {
+      resultFile.content.logs = [];
+    }
     // Regular log
-    logs.push(logString);
+    resultFile.content.logs.push(logString);
+    resultFile.content = JSON.stringify(resultFile.content);
 
-    io.to(roomId).emit("botLogs", logString);
+    await resultFile.save();
+    io.to(userId.toString()).emit("botLogs", logString);
   }
 };
 
 // Save form params entered by the client into a file
 const saveParamsToFile = async ({ params, userId }) => {
   await File.create({
-    userId: userId,
-    name: process.env.PARAMS_FILENAME,
-    content: JSON.stringify(params),
+    userId,
+    name: process.env.SESSION_FILENAME,
+    content: JSON.stringify({ date: new Date(), params, logs: [] }),
   });
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ PARAMS FILE WRITTEN`);
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ PARAMS FILE WRITTEN`
+  );
 };
 
-const openBrowser = async (isHeadless, isDevelopmentMode) => {
-  browser = await puppeteer.launch({
+const openBrowser = async (userId, isHeadless, isDevelopmentMode) => {
+  browsers[userId] = await puppeteer.launch({
     headless: isHeadless,
     args: ["--no-sandbox"],
   });
 
-  logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`
-  );
+  console.log(browsers);
+  let str = `${getCurrentDateTime()} ➤ HEADLESS: ${isHeadless ? "ON" : "OFF"}`;
 
-  logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${
-      isDevelopmentMode ? "ON" : "OFF"
-    }`
-  );
+  await logAndEmitToRoom(userId, str);
+
+  str = `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${
+    isDevelopmentMode ? "ON" : "OFF"
+  }`;
+  await logAndEmitToRoom(userId, str);
 };
 
-const openPage = async () => {
-  page = await browser.newPage();
+const openPage = async (userId) => {
+  pages[userId] = await browsers[userId].newPage();
 
-  await page.goto(process.env.SITE_URL);
+  await pages[userId].goto(process.env.SITE_URL);
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ SITE LOADED (${process.env.SITE_URL})`
   );
 };
 
-const openLoginForm = async () => {
+const openLoginForm = async (userId) => {
   // Open dropdown menu
-  await page.click(".dropdown");
+  await pages[userId].click(".dropdown");
 
   // Click on "Login as a workawayer"
-  await page.click('[data-who*="w"]');
+  await pages[userId].click('[data-who*="w"]');
 
   // Wait for the login popup form appears
   // TODO: check if better to use waitForSelector ()
-  await page.waitForTimeout(2000);
+  await pages[userId].waitForTimeout(2000);
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ LOGIN FORM OPENED`);
+  await logAndEmitToRoom(userId, `${getCurrentDateTime()} ➤ LOGIN FORM OPENED`);
 };
 
-const login = async (email, password) => {
-  await page.type('[data-login*="user"]', email);
-  await page.type('[type*="password"]', password);
+const login = async (userId, email, password) => {
+  await pages[userId].type('[data-login*="user"]', email);
+  await pages[userId].type('[type*="password"]', password);
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ LOGIN FORM FILLED`);
+  await logAndEmitToRoom(userId, `${getCurrentDateTime()} ➤ LOGIN FORM FILLED`);
 
-  await page.keyboard.press("Enter");
+  await pages[userId].keyboard.press("Enter");
 
-  await page.waitForNavigation();
+  await pages[userId].waitForNavigation();
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`);
+  try {
+    await pages[userId].waitForSelector("#myaccount-welcome");
+
+    await logAndEmitToRoom(
+      userId,
+      `${getCurrentDateTime()} ➤ WELL CONNECTED WITH ${email}`
+    );
+  } catch (error) {
+    shouldStopBot[userId] = true;
+
+    await logAndEmitToRoom(
+      userId,
+      `${getCurrentDateTime()} ➤ ERROR WHILE LOG IN, CHECK YOUR IDS`
+    );
+
+    io.to(userId.toString()).emit("errorLogin");
+    terminateBot(userId);
+  }
 };
 
-const moveToMeetupSection = async () => {
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVING TO MEETUP SECTION`);
+const moveToMeetupSection = async (userId) => {
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ MOVING TO MEETUP SECTION`
+  );
 
   // Navigate to the meetup section
-  await page.goto(process.env.MEETUP_SECTION_URL);
+  await pages[userId].goto(process.env.MEETUP_SECTION_URL);
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`);
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ MOVED TO MEETUP SECTION`
+  );
 
-  await page.waitForTimeout(2000); //TODO: check what's better to do
+  await pages[userId].waitForTimeout(2000); //TODO: check what's better to do
 };
 
-const setSearchParams = async (city, detectionRadius) => {
+const setSearchParams = async (userId, city, detectionRadius) => {
   // Set the location
-  await page.focus("#autocomplete");
-  await page.keyboard.type(city);
+  await pages[userId].focus("#autocomplete");
+  await pages[userId].keyboard.type(city);
 
-  await page.waitForTimeout(2000);
+  await pages[userId].waitForTimeout(2000);
 
   //TODO: handle case where no cities were found
   // The user enters a city name or part of, received here as param on the frontend app,
   // The backend get on the page all city/country couples (cities variable) proposed and send them to the client
   // citySelected is the couple finally selected by the client
-  const cities = await page.$$eval(".dropdown-item", (nodes) =>
+  const cities = await pages[userId].$$eval(".dropdown-item", (nodes) =>
     nodes.map((node) => node.textContent)
   );
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ AVAILABLE CITIES: ${cities.join()}`
   );
 
-  io.to(roomId).emit("citiesList", cities);
+  io.to(userId.toString()).emit("citiesList", cities);
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ WAITING FOR THE CHOICE OF THE CITY`
   );
 
   // Wait for the client to choose the city/country couple
-  while (citySelected === "") {
+  while (citySelected[userId] === "") {
     await sleep(500);
   }
+  await pages[userId].waitForTimeout(2000);
 
   // In order workaway app take in account the city choice, it's necessary to click on one of the menu item
-  const [location] = await page.$x(`//a[contains(., '${citySelected}')]`);
+  const [location] = await pages[userId].$x(
+    `//a[contains(., '${citySelected[userId]}')]`
+  );
 
   if (location) {
     await location.click();
   }
-  await page.waitForTimeout(2000);
+  await pages[userId].waitForTimeout(2000);
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ CITY SET TO ${citySelected}`);
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ CITY SET TO ${citySelected[userId]}`
+  );
 
   // Change radius detection around current location
-  await page.select('select[name="distance"]', detectionRadius.toString());
+  await pages[userId].select(
+    'select[name="distance"]',
+    detectionRadius.toString()
+  );
 
-  logAndEmitToRoom(
-    `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius}km`
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius.toString()}km`
   );
 };
 
 // Scrap members displayed on the page
-const scrapMembers = async (page, minAge, maxAge, city, resultFile) => {
+const scrapMembers = async (userId, page, minAge, maxAge, resultFile) => {
   // Get all members profile page url (present on the page)
   // TODO: check other page if pagination exists (in order to scrap members on the next pages)
   const profilesHrefs = await page.$$eval("a", (hrefs) =>
     hrefs.map((a) => a.href).filter((link) => link.includes("/en/workawayer/"))
   );
+  console.log("HHEEERRRR 3");
 
   // TODO: check why there are duplicate profiles
   // Remove duplicate using temporary Set
@@ -321,19 +405,21 @@ const scrapMembers = async (page, minAge, maxAge, city, resultFile) => {
   // Get all integers in the range
   const ageRange = range(parseInt(minAge), parseInt(maxAge));
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ TOTAL MEMBERS IN THE AREA: ${
       finalProfilesHrefsArray.length
     }`
   );
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ START SCRAPPING (ONLY MEMBERS IN THE AGE RANGE)...`
   );
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
   for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
-    if (shouldStopBot) {
+    if (shouldStopBot[userId]) {
       return true;
     }
 
@@ -380,7 +466,7 @@ const scrapMembers = async (page, minAge, maxAge, city, resultFile) => {
         .$eval("h1", (h1) => h1.textContent)
         .then((res) => res.trim());
 
-      membersDataScrapped.push({
+      membersDataScrapped[userId].push({
         name: name,
         age: age,
         profileHref: href,
@@ -389,29 +475,41 @@ const scrapMembers = async (page, minAge, maxAge, city, resultFile) => {
         messageSent: false,
       });
 
-      logAndEmitToRoom(`${getCurrentDateTime()} ➤ #${i} SCRAPPED`);
+      await logAndEmitToRoom(
+        userId,
+        `${getCurrentDateTime()} ➤ #${i} SCRAPPED`
+      );
     }
   }
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ ALL MEMBERS HAVE BEEN SCRAPPED`);
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ ALL MEMBERS HAVE BEEN SCRAPPED`
+  );
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ ${
-      membersDataScrapped.length
+      membersDataScrapped[userId].length
     } MEMBERS IN THE AGE RANGE`
   );
 
-  resultFile.content = JSON.stringify({ members: membersDataScrapped });
+  resultFile.content = JSON.stringify({
+    ...JSON.parse(resultFile.content),
+    members: membersDataScrapped[userId],
+  });
   console.log(resultFile.content);
   await resultFile.save();
   console.log("RESULT FILE SAVED");
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile.name}`
   );
 };
 
 // Send french message to french people respecting criteria, english message otherwise
 const sendMessageToMembers = async (
+  userId,
   page,
   messageSubject,
   englishMessage,
@@ -420,24 +518,28 @@ const sendMessageToMembers = async (
   developmentMode,
   resultFile
 ) => {
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ START SENDING MESSAGES`);
+  await logAndEmitToRoom(
+    userId,
+    `${getCurrentDateTime()} ➤ START SENDING MESSAGES`
+  );
 
   // Send message to scrapped members
-  for (var index in membersDataScrapped) {
-    if (shouldStopBot) {
+  for (var index in membersDataScrapped[userId]) {
+    if (shouldStopBot[userId]) {
       return true;
     }
 
     // Navigate to the message form corresponding to the scrapped user
     await page.goto(
-      process.env.MESSAGE_FORM_URL + membersDataScrapped[index].idForMessage
+      process.env.MESSAGE_FORM_URL +
+        membersDataScrapped[userId][index].idForMessage
     );
 
     if ((await page.$("#conversationcontainer")) === null) {
       await page.type("#subject", messageSubject);
 
       // Checking user nationality
-      if (membersDataScrapped[index].from.includes("France")) {
+      if (membersDataScrapped[userId][index].from.includes("France")) {
         await page.type("#message", frenchMessage);
       } else {
         await page.type("#message", englishMessage);
@@ -450,51 +552,74 @@ const sendMessageToMembers = async (
         await page.keyboard.press("Enter");
       }
 
-      membersDataScrapped[index].messageSent = true;
+      membersDataScrapped[userId][index].messageSent = true;
 
       await page.waitForTimeout(1000);
 
-      resultFile.content = JSON.stringify({ members: membersDataScrapped });
+      resultFile.content = JSON.stringify({
+        ...JSON.parse(resultFile.content),
+        members: membersDataScrapped[userId],
+      });
+
       await resultFile.save();
 
       const indexWithOffset = parseInt(index) + 1;
 
-      // TODO: check issue with index and message, no index 1-2/membersDataScrapped.length
-      // and membersDataScrapped.length/membersDataScrapped.length displayed twice
-      logAndEmitToRoom(
+      await logAndEmitToRoom(
+        userId,
         `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
-          membersDataScrapped.length
+          membersDataScrapped[userId].length
         } MESSAGES SENT`,
         true
       );
     }
   }
 
-  logAndEmitToRoom(
+  await logAndEmitToRoom(
+    userId,
     `${getCurrentDateTime()} ➤ ${
-      membersDataScrapped.length
+      membersDataScrapped[userId].length
     } MESSAGES HAVE BEEN SENT`
   );
 };
 
-const closeBrowser = async (browser) => {
-  await browser.close();
+const closeBrowser = async (userId) => {
+  await browsers[userId].close();
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BROWSER CLOSED`);
+  await logAndEmitToRoom(userId, `${getCurrentDateTime()} ➤ BROWSER CLOSED`);
 };
 
 export const clearLogs = async (req, res, next) => {
+  const { user } = req;
   console.log(`${getCurrentDateTime()} ➤ LOGS CLEARED`);
 
-  logs = [];
+  const resultFile = await File.findOne({
+    where: {
+      userId: user.id,
+      name: process.env.SESSION_FILENAME,
+    },
+    order: [["createdAt", "DESC"]],
+  });
 
+  if (resultFile !== null) {
+    resultFile.content = JSON.parse(resultFile.content);
+    if (resultFile.content.logsCleared === undefined) {
+      resultFile.content.logsCleared = [];
+    }
+    resultFile.content.logsCleared.push(resultFile.content.logs);
+    resultFile.content.logs = [];
+    resultFile.content = JSON.stringify(resultFile.content);
+    // logs = [];
+    resultFile.save();
+  }
   res.status(200).send("ok");
 };
 
 export const stopBot = async (req, res, next) => {
-  shouldStopBot = true;
+  const { user } = req;
+  shouldStopBot[user.id] = true;
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ BOT STOPPING...`);
+  await logAndEmitToRoom(user.id, `${getCurrentDateTime()} ➤ BOT STOPPING...`);
 
   res.status(200).send("ok");
 };
@@ -502,7 +627,7 @@ export const stopBot = async (req, res, next) => {
 export const setCity = async (req, res, next) => {
   res.send("ok");
 
-  citySelected = req.body.city;
+  citySelected[req.user.id] = req.body.city;
 };
 
 export const getFilesInfo = async (req, res, next) => {
@@ -523,14 +648,17 @@ export const getFilesInfo = async (req, res, next) => {
 
 export const deleteFile = async (req, res, next) => {
   const { user, params } = req;
-
+  console.log("waaaaants to delete: ", parseInt(params.id), user.id);
   const file = await File.findOne({
-    where: { userId: user.id, id: params.id },
+    where: { userId: user.id, id: parseInt(params.id) },
   });
 
   file.destroy();
 
-  logAndEmitToRoom(`${getCurrentDateTime()} ➤ ${params.name} WELL DELETED`);
+  await logAndEmitToRoom(
+    user.id,
+    `${getCurrentDateTime()} ➤ FILE WELL DELETED`
+  );
 
   res.send("ok");
 };
