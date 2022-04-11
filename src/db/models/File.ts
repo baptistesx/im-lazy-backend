@@ -61,7 +61,7 @@ export class File
   @Column
   name!: string;
 
-  @Column(DataType.JSONB )
+  @Column(DataType.JSONB)
   content!: FileContent;
 
   @CreatedAt
