@@ -1,5 +1,5 @@
 // user/index.ts
-var user = require("./user");
+const user = require("./user");
 
 module.exports = {
   getUser: user.getUser,

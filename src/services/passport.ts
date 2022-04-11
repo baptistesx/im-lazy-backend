@@ -1,40 +1,48 @@
+import { PassportStatic } from "passport";
+import { User } from "../db/models/User";
+// import { User:UserExpress } from "express";
+import { Request } from "express";
 import { capitalizeFirstLetter } from "../utils/functions";
 import { sendMail } from "./mails";
-const User = require("../db/models").User;
 const { v4: uuidV4 } = require("uuid");
 
 const GoogleTokenStrategy = require("passport-google-token").Strategy;
-var LocalStrategy = require("passport-local");
+const LocalStrategy = require("passport-local");
 
 // To encrypt and verify passwords
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
-
-type GoogleProfile = {
-  id: number;
+declare namespace Express {
+  interface User {
+    _id?: string;
+  }
+}
+type GoogleProfileRaw = {
+  id: string;
   displayName: string;
   emails: { value: string }[];
   provider: string;
 };
 
-const getGoogleProfile = (profile: GoogleProfile) => {
-  const { id, displayName, emails, provider } = profile;
-
-  if (emails?.length) {
-    const email = emails[0].value;
-
-    return {
-      googleId: id,
-      name: displayName,
-      email,
-      provider,
-    };
-  }
-
-  return null;
+type GoogleProfile = {
+  googleId: string;
+  name: string;
+  email: string;
+  provider: string;
 };
 
-module.exports = function (passport: any) {
+const getGoogleProfile = (profile: GoogleProfileRaw): GoogleProfile => {
+  const { id, displayName, emails, provider } = profile;
+
+  return {
+    googleId: id,
+    name: displayName,
+    email: emails[0].value,
+    provider,
+  };
+};
+
+module.exports = (passport: PassportStatic): void => {
   passport.use(
     new GoogleTokenStrategy(
       {
@@ -42,9 +50,10 @@ module.exports = function (passport: any) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       },
       async (
-        accessToken: string,
-        refreshToken: string,
-        profile: GoogleProfile,
+        _accessToken: string,
+        _refreshToken: string,
+        profile: GoogleProfileRaw,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         done: (arg0: null, arg1: any) => any
       ) => {
         try {
@@ -83,11 +92,12 @@ module.exports = function (passport: any) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req: any, email: string, password: string, done: Function) => {
+      async (req: Request, email: string, password: string, done: Function) => {
         try {
           const existingEmailAccount = await User.findOne({
             where: { email: email },
           });
+          console.log(existingEmailAccount);
 
           if (!existingEmailAccount) {
             return done(null, false, {
@@ -104,7 +114,7 @@ module.exports = function (passport: any) {
                   message: "Bad password",
                 });
               }
-              req.user = existingEmailAccount;
+              req.uuser = existingEmailAccount;
 
               return done(null, existingEmailAccount);
             }
@@ -129,7 +139,7 @@ module.exports = function (passport: any) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req: any, email: string, password: string, done: Function) => {
+      async (req: Request, email: string, password: string, done: Function) => {
         try {
           const existingEmailAccount = await User.findOne({
             where: { email: email },
@@ -141,13 +151,15 @@ module.exports = function (passport: any) {
             });
           }
 
-          //TODO: use sequelize hook to encrypt password automatically
+          // TODO: use sequelize hook to encrypt password automatically
           bcrypt.hash(
             password,
             saltRounds,
-            async function (err: Error, hash: string) {
-              const emailVerificationString = uuidV4();
-
+            async function (_err: Error, hash: string) {
+              const emailVerificationString: string = uuidV4();
+              if (req.body.name === undefined) {
+                throw new Error("name is undefined");
+              }
               const newAccount = await User.create({
                 name: req.body.name,
                 email: email,
@@ -183,15 +195,39 @@ module.exports = function (passport: any) {
     )
   );
 
-  passport.serializeUser((user: any, done: Function) => {
-    done(null, user.id);
-  });
+  passport.serializeUser(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (user: Express.User, done: (err: any, id?: string | undefined) => void) => {
+      done(null, JSON.stringify(user));
+    }
+  );
 
   passport.deserializeUser((id: string, done: Function) => {
     User.findByPk(id)
-      .then((user: any) => {
+      .then((user: User | null) => {
         done(null, user);
       })
       .catch((error: Error) => done(error));
   });
+
+  // passport.serializeUser(
+  //   (user: Express.User, done: (err: any, id?: number | undefined) => void) => {
+  //     done(null, user.id);
+  //   }
+  // );
+
+  // passport.deserializeUser(
+  //   (id: string, done: (arg1: null, user: User) => void): void => {
+  //     User.findByPk(id)
+  //       .then((user: User | null): void => {
+  //         if (user === null) {
+  //           throw new Error("user is null");
+  //         }
+  //         done(null, user);
+  //       })
+  //       .catch((error: Error) => {
+  //         throw new Error(JSON.stringify(error));
+  //       });
+  //   }
+  // );
 };

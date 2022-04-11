@@ -1,3 +1,5 @@
+import { Application } from "express";
+import { PassportStatic } from "passport";
 import AuthController from "../controllers/AuthController";
 // Workaway bot callbacks
 const startBot = require("../workawayBot/index").startBot;
@@ -7,7 +9,6 @@ const setCity = require("../workawayBot/index").setCity;
 const getFilesInfo = require("../workawayBot/index").getFilesInfo;
 const getFile = require("../workawayBot/index").getFile;
 const deleteFile = require("../workawayBot/index").deleteFile;
-const initSocket = require("../workawayBot/index").initSocket;
 
 // Users callbacks
 const getUser = require("../user/index").getUser;
@@ -20,7 +21,7 @@ const deleteUserById = require("../user/index").deleteUserById;
 const sendVerificationEmail = require("../user/index").sendVerificationEmail;
 const savePayment = require("../user/index").savePayment;
 
-module.exports = (app, passport) => {
+exports.init = (app: Application, passport: PassportStatic): void => {
   // Workaway Bot Routes
   app.post(
     "/workaway-bot/start-bot",

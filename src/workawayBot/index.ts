@@ -1,6 +1,5 @@
 // workaway/index.ts
-var workawayBot = require("./workawayBot");
-var utils = require("./utils");
+const workawayBot = require("./workawayBot");
 
 module.exports = {
   initSocket: workawayBot.initSocket,
