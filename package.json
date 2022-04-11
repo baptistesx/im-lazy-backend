@@ -83,5 +83,11 @@
   "validate-branch-name": {
     "pattern": "^(main|develop){1}$|^(feature|bugfix|hotfix|chore|experiment|config)/.+$",
     "errorMsg": "Branch name format : <type>/<name>"
+  },
+  "lint-staged": {
+    "*.(js|ts)": [
+      "npx prettier --write",
+      "npx eslint --fix"
+    ]
   }
 }
