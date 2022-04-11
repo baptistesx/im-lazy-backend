@@ -1,6 +1,5 @@
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
-}
+require("dotenv").config();
+
 import { Application } from "express";
 import { PassportStatic } from "passport";
 import sequelize from "./db/models";
@@ -26,27 +25,26 @@ export const io = require("socket.io")(server, {
 });
 const initSocket = require("./workawayBot/index").initSocket;
 sequelize.sync().then(() => {
-// Init socket
-io.sockets.on("connection", initSocket);
+  // Init socket
+  io.sockets.on("connection", initSocket);
 
-require(`${__dirname}/services/passport`)(passport); // pass passport for configuration
-const corsOptions = {
-  credentials: true,
-  origin:
-    process.env.NODE_ENV !== "production" ? true : process.env.ALLOWED_DOMAIN,
-};
-app.use(cors(corsOptions));
+  require(`${__dirname}/services/passport`)(passport); // pass passport for configuration
+  const corsOptions = {
+    credentials: true,
+    origin:
+      process.env.NODE_ENV !== "production" ? true : process.env.ALLOWED_DOMAIN,
+  };
+  app.use(cors(corsOptions));
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(logger("dev"));
-app.set("trust proxy", 1);
-routes.init(app, passport);
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: false }));
+  app.use(cookieParser());
+  app.use(logger("dev"));
+  app.set("trust proxy", 1);
+  routes.init(app, passport);
 
-const port = process.env.PORT || 3100;
-server.listen(port, () =>
-  console.log(`Server running on http://localhost:${port}`)
-);
+  const port = process.env.PORT || 3100;
+  server.listen(port, () =>
+    console.log(`Server running on http://localhost:${port}`)
+  );
 });
-

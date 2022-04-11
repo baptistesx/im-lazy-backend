@@ -4,9 +4,9 @@
   "description": "Bot to send meetup request messages to workawayers in the area",
   "main": "main.js",
   "scripts": {
-    "dev": "nodemon --watch './**/*.ts' --exec 'ts-node' src/main.ts",
+    "dev": "set NODE_ENV=development && nodemon --watch './**/*.ts' --exec 'ts-node' src/main.ts",
     "start": "node dist/main.js",
-    "build": "tsc -p . && sequelize db:migrate --env production",
+    "build": "set NODE_ENV=production && tsc -p . && sequelize db:migrate --env production",
     "lint": "eslint . --ext .ts"
   },
   "author": "baptistesx",

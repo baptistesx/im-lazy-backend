@@ -15,6 +15,6 @@ export const range = ({ start, end }: RangeProps): number[] => {
 export const getCurrentDateTime = (): string =>
   format(new Date(), "d/M/Y, HH:mm:ss");
 
-export const sleep = (delayMs: number) => {
+export const sleep = (delayMs: number): Promise<Function> => {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 };
