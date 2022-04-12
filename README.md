@@ -8,9 +8,11 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 **PostgreSQL** is used for the database.
 [**Sequelize**](https://sequelize.org/) is used as an interface for the db.
 [**PassportJs**](https://www.passportjs.org/) is used for local and Google OAuth2 authentication.
+
 ## 1: Setup PostgreSQL
 
 > **TODO:** To fill up this part
+
 - To fill up the db
 
 ## 2: Setup project
@@ -23,18 +25,19 @@ This project correspond to the backend API for the [**ImLazy** app frontend](htt
 
 The next steps are inspired by https://www.sqlshack.com/setting-up-a-postgresql-database-on-mac/
 To work locally on macos :
+
 - install brew: /bin/bash -c “$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)”
 - brew update
 - install postgres: brew install postgresql
--  brew services start postgresql 
-- to stop the service:  brew services stop postgresql 
+- brew services start postgresql
+- to stop the service: brew services stop postgresql
 
 - configure postgres database server
--  $ psql postgres 
-CREATE ROLE newUser WITH LOGIN PASSWORD ‘password’;
-ALTER ROLE newUser CREATEDB; 
+- $ psql postgres
+  CREATE ROLE newUser WITH LOGIN PASSWORD ‘password’;
+  ALTER ROLE newUser CREATEDB;
 - \q (to quit)
-(If error while connecting to psql server locally: 
+  (If error while connecting to psql server locally:
 - rm /usr/local/var/postgres/postmaster.pid
 - brew services restart postgresql)
 - install pg admin to navigate Postgres Database server (https://www.pgadmin.org/download/)
@@ -49,4 +52,6 @@ ALTER ROLE newUser CREATEDB;
 
 - Setup error handler and backend logs save in file
 - Use typescript strict
-- Check  Todos in the code
+- Check Todos in the code
+- Setup doc (swagger?)
+- handle password management with google account (no management to do)

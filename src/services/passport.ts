@@ -1,40 +1,52 @@
-import { capitalizeFirstLetter } from "../utils/functions";
-import { sendMail } from "./mails";
-const User = require("../db/models").User;
+import { Request } from "express";
+import { PassportStatic } from "passport";
+import { User } from "../db/models/User";
+import { sendWelcomeMail } from "./mails";
+
 const { v4: uuidV4 } = require("uuid");
 
 const GoogleTokenStrategy = require("passport-google-token").Strategy;
-var LocalStrategy = require("passport-local");
+const LocalStrategy = require("passport-local");
 
 // To encrypt and verify passwords
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
-type GoogleProfile = {
-  id: number;
+// Necessary to use Express.User in serializeUser()
+// TODO: how to not use this solution?
+declare namespace Express {
+  interface User {
+    _id?: string;
+  }
+}
+
+type GoogleProfileRaw = {
+  id: string;
   displayName: string;
   emails: { value: string }[];
   provider: string;
 };
 
-const getGoogleProfile = (profile: GoogleProfile) => {
-  const { id, displayName, emails, provider } = profile;
-
-  if (emails?.length) {
-    const email = emails[0].value;
-
-    return {
-      googleId: id,
-      name: displayName,
-      email,
-      provider,
-    };
-  }
-
-  return null;
+type GoogleProfile = {
+  googleId: string;
+  name: string;
+  email: string;
+  provider: string;
 };
 
-module.exports = function (passport: any) {
+const getGoogleProfile = (profile: GoogleProfileRaw): GoogleProfile => {
+  const { id, displayName, emails, provider } = profile;
+
+  return {
+    googleId: id,
+    name: displayName,
+    email: emails[0].value,
+    provider,
+  };
+};
+
+export default (passport: PassportStatic): void => {
+  // Google signin/signup
   passport.use(
     new GoogleTokenStrategy(
       {
@@ -42,38 +54,42 @@ module.exports = function (passport: any) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       },
       async (
-        accessToken: string,
-        refreshToken: string,
-        profile: GoogleProfile,
-        done: (arg0: null, arg1: any) => any
+        _accessToken: string,
+        _refreshToken: string,
+        profile: GoogleProfileRaw,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        done: (arg0: null, arg1: any) => any // done (<no error>, <return "google" profile to serializeUser()>)
       ) => {
         try {
-          const existingGoogleAccount = await User.findOne({
+          const googleUser = await User.findOne({
             where: { googleId: profile.id },
           });
 
-          if (!existingGoogleAccount) {
-            const existingEmailAccount = await User.findOne({
-              where: { email: getGoogleProfile(profile)?.email },
+          if (googleUser === null) {
+            const newUser = await User.create(getGoogleProfile(profile));
+
+            const emailVerificationString: string = uuidV4();
+
+            sendWelcomeMail({
+              email: profile.emails[0].value,
+              name: profile.displayName,
+              verificationString: emailVerificationString,
             });
 
-            if (!existingEmailAccount) {
-              const newAccount = await User.create(getGoogleProfile(profile));
-
-              return done(null, newAccount);
-            }
-            return done(null, existingEmailAccount);
+            return done(null, newUser);
           }
-          return done(null, existingGoogleAccount);
+
+          return done(null, googleUser);
         } catch (error) {
           console.log("An error occured while local signin:", error);
-          return done(null, false);
+
+          return done(null, null);
         }
       }
     )
   );
 
-  // local signin
+  // local signin with email and password
   passport.use(
     "local-signin",
     new LocalStrategy(
@@ -83,34 +99,38 @@ module.exports = function (passport: any) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req: any, email: string, password: string, done: Function) => {
+      // TODO: type more specifically res
+      async (req: Request, email: string, password: string, done: Function) => {
         try {
-          const existingEmailAccount = await User.findOne({
+          const user = await User.findOne({
             where: { email: email },
           });
 
-          if (!existingEmailAccount) {
+          if (user === null) {
             return done(null, false, {
               message: "Incorrect username or password.",
             });
           }
 
+          // Verify password
           bcrypt.compare(
             password,
-            existingEmailAccount.password,
+            user.password,
             function (err: Error, isMatch: boolean) {
               if (err || !isMatch) {
                 return done(null, false, {
                   message: "Bad password",
                 });
               }
-              req.user = existingEmailAccount;
 
-              return done(null, existingEmailAccount);
+              req.uuser = user;
+
+              return done(null, user);
             }
           );
         } catch (error) {
           console.log("An error occured while local signin:", error);
+
           return done(null, false, {
             message: "An error occured while local signin",
           });
@@ -129,24 +149,29 @@ module.exports = function (passport: any) {
         passwordField: "password",
         passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
-      async (req: any, email: string, password: string, done: Function) => {
+      // TODO: type more specifically res
+      async (req: Request, email: string, password: string, done: Function) => {
         try {
-          const existingEmailAccount = await User.findOne({
+          const user = await User.findOne({
             where: { email: email },
           });
 
-          if (existingEmailAccount) {
+          if (user !== null) {
             return done(null, false, {
               message: "Account already used.",
             });
           }
 
-          //TODO: use sequelize hook to encrypt password automatically
+          // TODO: use sequelize hook to encrypt password automatically
           bcrypt.hash(
             password,
             saltRounds,
-            async function (err: Error, hash: string) {
-              const emailVerificationString = uuidV4();
+            async function (_err: Error, hash: string) {
+              const emailVerificationString: string = uuidV4();
+
+              if (req.body.name === undefined) {
+                throw new Error("name is undefined");
+              }
 
               const newAccount = await User.create({
                 name: req.body.name,
@@ -155,19 +180,12 @@ module.exports = function (passport: any) {
                 emailVerificationString: emailVerificationString,
               });
 
-              sendMail({
-                from: "ImLazy app",
-                to: process.env.EMAIL_TEST ?? email,
-                subject: "Welcome to ImLazy app!",
-                html: `<p>Welcome ${capitalizeFirstLetter(
-                  req.body.name
-                )} on ImLazy app !</p>
-                <p>You'll discover all the lazy ressources available !</p>
-                <p>Last step to verify your account, press <a href="${
-                  process.env.API_URL
-                }/verify/${emailVerificationString}">Here</a></p>
-                <p>Enjoy</p>
-                <p>The ImLazy Team</p>`,
+              req.uuser = newAccount;
+
+              sendWelcomeMail({
+                email,
+                name: req.body.name,
+                verificationString: emailVerificationString,
               });
 
               return done(null, newAccount);
@@ -183,13 +201,17 @@ module.exports = function (passport: any) {
     )
   );
 
-  passport.serializeUser((user: any, done: Function) => {
-    done(null, user.id);
-  });
+  // Called with done() if user exists or has been created
+  passport.serializeUser(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (user: Express.User, done: (err: any, id?: string | undefined) => void) => {
+      done(null, JSON.stringify(user));
+    }
+  );
 
   passport.deserializeUser((id: string, done: Function) => {
     User.findByPk(id)
-      .then((user: any) => {
+      .then((user: User | null) => {
         done(null, user);
       })
       .catch((error: Error) => done(error));

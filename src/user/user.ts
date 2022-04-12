@@ -1,6 +1,11 @@
-import { sendMail } from "../services/mails";
-import { capitalizeFirstLetter } from "../utils/functions";
-const Payment = require("../db/models").Payment;
+import { Request, Response } from "express";
+import { Payment } from "../db/models/Payment";
+import { RolesEnum, User } from "../db/models/User";
+import {
+  sendResetPasswordMail,
+  sendWelcomeCreatedByAdminMail,
+  sendWelcomeMail,
+} from "../services/mails";
 
 // To generate uuids
 const { v4: uuidV4 } = require("uuid");
@@ -9,41 +14,33 @@ const { v4: uuidV4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
-// To use authorization tokens
-const jwt = require("jsonwebtoken");
-const SECRET_KEY = process.env.SECRET_KEY;
+// TODO: type Reponse
 
-// For postgresql client
-const { Client } = require("pg");
+export const getUser = (req: Request, res: Response): void => {
+  const { uuser: user } = req;
 
-const User = require("../db/models").User;
-
-export const getUser = (req, res, next) => {
-  res.status(200).send({ user: req?.user });
+  res.send({ user });
 };
 
-export const resetPassword = (req, res, next) => {
-  const user = req.user;
+export const resetPassword = (req: Request, res: Response): void => {
+  const { uuser: user } = req;
+
   if (user) {
-    var randomPassword = Math.random().toString(36).slice(-8);
+    const randomPassword = Math.random().toString(36).slice(-8);
 
     bcrypt.hash(
       randomPassword,
       saltRounds,
-      async function (err: Error, password: string) {
+      async function (_err: Error, password: string) {
         try {
           user.password = password;
 
           await user.save();
 
-          sendMail({
-            from: "ImLazy app",
-            to: process.env.EMAIL_TEST ?? user.email,
-            subject: "Welcome to ImLazy app!",
-            html: `<p>Hi ${capitalizeFirstLetter(req.body.name)},</p>
-          <p>Here is your new password (don't hesisate to change it on your profile page): ${randomPassword}</p>
-          <p>Enjoy</p>
-          <p>The ImLazy Team</p>`,
+          sendResetPasswordMail({
+            email: user.email,
+            name: user.name,
+            randomPassword,
           });
 
           res.status(200).send();
@@ -53,11 +50,13 @@ export const resetPassword = (req, res, next) => {
       }
     );
   } else {
-    res.status(500).send();
+    // Don't send an error to not inform a potential hacker the user doesn't exist
+    // The frontend will display a message like "if user exists, a reset password email has been sent"
+    res.status(200).send();
   }
 };
 
-export const getUsers = async (req, res, next) => {
+export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   const users = await User.findAll();
 
   if (users) {
@@ -66,48 +65,100 @@ export const getUsers = async (req, res, next) => {
     res.status(400).send("error getting users");
   }
 };
-export const deleteUserById = async (req, res, next) => {
+
+export const deleteUserById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const id = req.params.id;
-
+  console.log(id);
   const userToDelete = await User.findOne({ where: { id } });
-
-  if (userToDelete) {
-    userToDelete.destroy();
-    res.status(200).send();
-  } else {
+  console.log(userToDelete);
+  if (userToDelete === null) {
     res.status(400).send("no user to delete");
+
+    return;
   }
+
+  userToDelete.destroy();
+
+  res.send("ok");
 };
 
-export const updateUserById = async (req, res, next) => {
-  const email = req.body.email;
-  const name = req.body.name;
-  const role = req.body.role;
+export const updateUserById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { email, name, role } = req.body;
+  const { uuser: user } = req;
 
-  const user = req.user;
+  if (user === undefined) {
+    res.status(400).send("user is undefined");
+
+    return;
+  }
+  if (email === undefined) {
+    res.status(400).send("email is undefined");
+
+    return;
+  }
+  if (name === undefined) {
+    res.status(400).send("name is undefined");
+
+    return;
+  }
+  if (role !== undefined) {
+    user.role =
+      role === "admin"
+        ? RolesEnum.ADMIN
+        : role === "premium"
+        ? RolesEnum.PREMIUM
+        : RolesEnum.CLASSIC;
+  }
 
   user.email = email;
   user.name = name;
-  if (role !== undefined) {
-    user.role = role;
-  }
 
   await user.save();
 
   res.status(200).send();
 };
 
-export const createUser = async (req, res, next) => {
-  const email = req.body.email;
-  const name = req.body.name;
-  const role = req.body.role;
+export const createUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { email, name, role: tempRole } = req.body;
 
-  var randomPassword = Math.random().toString(36).slice(-8);
+  if (email === undefined) {
+    res.status(400).send("email is undefined");
+
+    return;
+  }
+  if (name === undefined) {
+    res.status(400).send("name is undefined");
+
+    return;
+  }
+  if (tempRole === undefined) {
+    res.status(400).send("role is undefined");
+
+    return;
+  }
+
+  const role =
+    tempRole === "admin"
+      ? RolesEnum.ADMIN
+      : tempRole === "premium"
+      ? RolesEnum.PREMIUM
+      : RolesEnum.CLASSIC;
+
+  const randomPassword = Math.random().toString(36).slice(-8);
 
   bcrypt.hash(
     randomPassword,
     saltRounds,
-    async function (err: Error, password: string) {
+    async function (_err: Error, password: string) {
       const emailVerificationString = uuidV4();
 
       try {
@@ -119,19 +170,17 @@ export const createUser = async (req, res, next) => {
           emailVerificationString,
         });
 
-        sendMail({
-          from: "ImLazy app",
-          to: process.env.EMAIL_TEST ?? email,
-          subject: "Welcome to ImLazy app!",
-          html: `<p>Welcome ${capitalizeFirstLetter(
-            req.body.name
-          )} on ImLazy app !</p>
-          <p>You'll discover all the lazy ressources available !</p>
-          <p>Last step to verify your account, press <a href="${
-            process.env.API_URL
-          }/verify/${emailVerificationString}">Here</a></p>
-          <p>Enjoy</p>
-          <p>The ImLazy Team</p>`,
+        const finalEmail = process.env.EMAIL_TEST ?? email ?? "";
+
+        if (finalEmail === "") {
+          throw new Error("email is undefined");
+        }
+
+        sendWelcomeCreatedByAdminMail({
+          email: finalEmail,
+          name,
+          verificationString: emailVerificationString,
+          randomPassword,
         });
 
         res.status(200).send();
@@ -142,24 +191,36 @@ export const createUser = async (req, res, next) => {
   );
 };
 
-export const updateUserPasswordById = async (req, res, next) => {
-  const user = req.user;
+export const updateUserPasswordById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { uuser: user } = req;
+
+  if (user === undefined) {
+    res.status(401).send("user is undefined");
+
+    return;
+  }
 
   bcrypt.compare(
     req.body.currentPassword,
     user.password,
-    function (err: Error, isMatch: boolean) {
+    function (_err: Error, isMatch: boolean) {
       if (!isMatch) {
-        return res.status(400).send();
+        res.status(400).send("Incorrect password");
+
+        return;
       }
 
       bcrypt.hash(
         req.body.newPassword,
         saltRounds,
-        async function (err: Error, password: string) {
+        async function (_err: Error, password: string) {
           user.password = password;
 
           user.save();
+
           res.status(200).send();
         }
       );
@@ -167,30 +228,43 @@ export const updateUserPasswordById = async (req, res, next) => {
   );
 };
 
-export const sendVerificationEmail = async (req, res, next) => {
-  const email = req.body.email;
+export const sendVerificationEmail = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { email, name } = req.body;
+
+  if (email === undefined) {
+    res.send(400).send("email is undefined");
+
+    return;
+  }
 
   const emailVerificationString = uuidV4();
 
   try {
     const user = await User.findOne({ where: { email } });
 
+    if (user === null) {
+      res.send(400).send("user is undefined");
+
+      return;
+    }
+
     user.emailVerificationString = emailVerificationString;
+
     user.save();
 
-    sendMail({
-      from: "ImLazy app",
-      to: process.env.EMAIL_TEST ?? email,
-      subject: "Welcome to ImLazy app!",
-      html: `<p>Welcome ${capitalizeFirstLetter(
-        req.body.name
-      )} on ImLazy app !</p>
-        <p>You'll discover all the lazy ressources available !</p>
-        <p>Last step to verify your account, press <a href="${
-          process.env.API_URL
-        }/verify/${emailVerificationString}">Here</a></p>
-        <p>Enjoy</p>
-        <p>The ImLazy Team</p>`,
+    const finalEmail = process.env.EMAIL_TEST ?? email ?? "";
+
+    if (finalEmail === "") {
+      throw new Error("email is undefined");
+    }
+
+    sendWelcomeMail({
+      email: finalEmail,
+      name,
+      verificationString: emailVerificationString,
     });
 
     res.status(200).send();
@@ -199,15 +273,25 @@ export const sendVerificationEmail = async (req, res, next) => {
   }
 };
 
-export const savePayment = async (req, res, next) => {
-  const user = req.user;
+export const savePayment = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { uuser: user } = req;
+
+  if (user === undefined) {
+    res.status(401).send("user is undefined");
+
+    return;
+  }
 
   await Payment.create({
     userId: user.id,
     details: req.body.paymentResume,
   });
 
-  user.role = "premium";
+  user.role = RolesEnum.PREMIUM;
+
   user.save();
 
   try {
