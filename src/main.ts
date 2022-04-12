@@ -35,9 +35,9 @@ sequelize
 
     initRoutes(app, passport);
 
-    server.listen(process.env.API_PORT, () =>
+    server.listen(process.env.PORT, () =>
       console.log(
-        `Server running on ${process.env.API_URL}:${process.env.API_PORT}`
+        `Server running on ${process.env.API_URL}:${process.env.PORT}`
       )
     );
   })

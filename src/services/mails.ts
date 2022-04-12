@@ -36,9 +36,7 @@ export const sendWelcomeMail = ({
                 <p>You'll discover all the lazy ressources available !</p>
                 <p>Last step to verify your account, press <a href="${
                   process.env.API_URL
-                }:${
-      process.env.API_PORT
-    }/verify/${verificationString}">Here</a></p>
+                }:${process.env.PORT}/verify/${verificationString}">Here</a></p>
                 <p>Enjoy</p>
                 <p>The ImLazy Team</p>`,
   });
@@ -66,9 +64,7 @@ export const sendWelcomeCreatedByAdminMail = ({
                 <p>Here is your password (don't hesisate to change it on your profile page): ${randomPassword}</p>
                 <p>Last step to verify your account, press <a href="${
                   process.env.API_URL
-                }:${
-      process.env.API_PORT
-    }/verify/${verificationString}">Here</a></p>
+                }:${process.env.PORT}/verify/${verificationString}">Here</a></p>
                 <p>Enjoy</p>
                 <p>The ImLazy Team</p>`,
   });
