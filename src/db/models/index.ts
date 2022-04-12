@@ -5,7 +5,7 @@ import { File } from "./File";
 import { Payment } from "./Payment";
 import { User } from "./User";
 const env = process.env.NODE_ENV || "development";
-const config = require(__dirname + "/../config.js")[env];
+const config = require("../config")[env];
 
 const sequelize = new Sequelize(
   "im-lazy-development",
