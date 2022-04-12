@@ -52,8 +52,10 @@ export default (passport: PassportStatic): void => {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        passReqToCallback: true, // allows us to pass back the entire request to the callback
       },
       async (
+        req: Request,
         _accessToken: string,
         _refreshToken: string,
         profile: GoogleProfileRaw,
@@ -67,6 +69,7 @@ export default (passport: PassportStatic): void => {
 
           if (googleUser === null) {
             const newUser = await User.create(getGoogleProfile(profile));
+            req.uuser = newUser;
 
             const emailVerificationString: string = uuidV4();
 
@@ -78,6 +81,8 @@ export default (passport: PassportStatic): void => {
 
             return done(null, newUser);
           }
+
+          req.uuser = googleUser;
 
           return done(null, googleUser);
         } catch (error) {
@@ -193,6 +198,7 @@ export default (passport: PassportStatic): void => {
           );
         } catch (error) {
           console.log("An error occured while local signup:", error);
+
           return done(null, false, {
             message: "An error occured while local signup",
           });

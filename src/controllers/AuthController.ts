@@ -95,7 +95,7 @@ const jwt = require("jsonwebtoken");
 
 const AuthController = {
   async signIn(req: Request, res: Response): Promise<void> {
-    const user = req.uuser;
+    const { uuser: user } = req;
 
     if (user === undefined) {
       res.status(400).send({ error: "User was not authenticated" });

@@ -71,9 +71,9 @@ export const deleteUserById = async (
   res: Response
 ): Promise<void> => {
   const id = req.params.id;
-  console.log(id);
+
   const userToDelete = await User.findOne({ where: { id } });
-  console.log(userToDelete);
+
   if (userToDelete === null) {
     res.status(400).send("no user to delete");
 
