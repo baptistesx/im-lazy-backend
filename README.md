@@ -53,3 +53,5 @@ To work locally on macos :
 - Setup error handler and backend logs save in file
 - Use typescript strict
 - Check Todos in the code
+- Setup doc (swagger?)
+- handle password management with google account (no management to do)

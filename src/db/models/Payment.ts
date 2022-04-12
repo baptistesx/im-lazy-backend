@@ -17,6 +17,7 @@ import { User } from "./User";
 interface PaymentAttributes {
   id: number;
   details: object;
+  userId: number;
 }
 
 interface PaymentCreationAttributes extends Optional<PaymentAttributes, "id"> {}

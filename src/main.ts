@@ -3,48 +3,44 @@ require("dotenv").config();
 import { Application } from "express";
 import { PassportStatic } from "passport";
 import sequelize from "./db/models";
+import initRoutes from "./routes";
+import initPassportService from "./services/passport";
+import initVariousMiddlewares from "./services/variousMiddlewares";
+import { initBotSocket } from "./workawayBot/workawayBot";
 
-const cors = require("cors");
-const logger = require("morgan");
 const express = require("express");
-const bodyParser = require("body-parser");
-const cookieParser = require("cookie-parser");
-
-const routes = require("./routes/index");
 
 // PassportJs is used for auth middlewares and actions
 const passport: PassportStatic = require("passport");
-// const passportService = require(`${__dirname}/services/passport`)(passport); // pass passport for configuration
+
 const app: Application = express();
 
 const server = require("http").createServer(app);
+
 // Sockets for the Workaway bot live logs
 export const io = require("socket.io")(server, {
   // TODO: change "*" to secure app
   cors: { origin: "*" },
 });
-const initSocket = require("./workawayBot/index").initSocket;
-sequelize.sync().then(() => {
-  // Init socket
-  io.sockets.on("connection", initSocket);
 
-  require(`${__dirname}/services/passport`)(passport); // pass passport for configuration
-  const corsOptions = {
-    credentials: true,
-    origin:
-      process.env.NODE_ENV !== "production" ? true : process.env.ALLOWED_DOMAIN,
-  };
-  app.use(cors(corsOptions));
+// Sync all defined models to the DB.
+sequelize
+  .sync()
+  .then(() => {
+    io.sockets.on("connection", initBotSocket);
 
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(cookieParser());
-  app.use(logger("dev"));
-  app.set("trust proxy", 1);
-  routes.init(app, passport);
+    initPassportService(passport);
 
-  const port = process.env.PORT || 3100;
-  server.listen(port, () =>
-    console.log(`Server running on http://localhost:${port}`)
-  );
-});
+    initVariousMiddlewares(app);
+
+    initRoutes(app, passport);
+
+    server.listen(process.env.API_PORT, () =>
+      console.log(
+        `Server running on ${process.env.API_URL}:${process.env.API_PORT}`
+      )
+    );
+  })
+  .catch((e) => {
+    console.log("An error occured while models/db sync:", e);
+  });

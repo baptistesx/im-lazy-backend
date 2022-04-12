@@ -15,7 +15,7 @@ import {
   UpdatedAt,
 } from "sequelize-typescript";
 import { Optional } from "sequelize/types";
-import { MemberData } from "../../workawayBot/workawayBot";
+import { MemberScrapped } from "../../workawayBot/workawayBot";
 import { User } from "./User";
 
 type WorkawayFormParams = {
@@ -36,7 +36,7 @@ type FileContent = {
   logs: string[];
   params: WorkawayFormParams;
   logsCleared: string[];
-  members: MemberData[];
+  members: MemberScrapped[];
 };
 
 type FileAttributes = {

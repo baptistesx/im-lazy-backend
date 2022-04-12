@@ -1,15 +1,3 @@
-// export type Users = {
-//   name: string;
-//   email: string;
-//   password: string;
-//   googleId: string;
-//   provider: string;
-//   role: "admin" | "premium" | "classic";
-//   isEmailVerified: boolean;
-//   lastLogin: Date;
-//   emailVerificationString: string;
-// };
-
 import { User } from "../db/models/User";
 
 export const isAdmin = (user: User): boolean => user.role === "admin";

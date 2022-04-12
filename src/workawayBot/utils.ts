@@ -1,15 +1,12 @@
-// Function to format dates
 const format = require("date-fns/format");
-
-// Return integers in the range betwenn start and end
 
 type RangeProps = { start: number; end: number };
 
-export const range = ({ start, end }: RangeProps): number[] => {
-  return Array(end - start + 1)
+// Return integers in the range between start and end
+export const range = ({ start, end }: RangeProps): number[] =>
+  Array(end - start + 1)
     .fill(end - start + 1)
     .map((_, idx) => start + idx);
-};
 
 // Get the current datetime with a specific format
 export const getCurrentDateTime = (): string =>

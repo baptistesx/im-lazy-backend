@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import * as core from "express-serve-static-core";
 import { User, User as Uuser } from "../db/models/User";
 import { isAdmin, isPremium } from "../utils/functions";
+
 export interface Address {
   /**
    * The first line of the address. For example, number or street.
@@ -63,6 +64,7 @@ interface CustomParamsDictionary extends core.ParamsDictionary {
 declare global {
   namespace Express {
     export interface Request {
+      // TODO: rename uuser param
       uuser?: Uuser;
       params: CustomParamsDictionary;
       body: {
@@ -94,7 +96,8 @@ const jwt = require("jsonwebtoken");
 const AuthController = {
   async signIn(req: Request, res: Response): Promise<void> {
     const user = req.uuser;
-    if (!user) {
+
+    if (user === undefined) {
       res.status(400).send({ error: "User was not authenticated" });
       return;
     }
@@ -142,27 +145,39 @@ const AuthController = {
 
     const user = await User.findOne({ where: { id } });
 
-    if (user) {
-      req.uuser = user;
-
-      next();
-    } else {
+    if (user === null) {
       res.status(400).send("no user");
+
+      return;
     }
+
+    req.uuser = user;
+
+    next();
   },
   async userExists(
     req: Request,
-    _res: Response,
+    res: Response,
     next: NextFunction
   ): Promise<void> {
-    const email = req.body.email;
+    const { email } = req.body;
+
     if (email === undefined) {
-      throw new Error("email is null");
+      res.status(400).send("email is null");
+
+      return;
     }
+
     const user = await User.findOne({ where: { email } });
+
     if (user === null) {
-      throw new Error("user is null");
+      // Don't send an error to not inform a potential hacker the user doesn't exist
+      // The frontend will display a message like "if user exists, a reset password email has been sent"
+      res.status(200).send();
+
+      return;
     }
+
     // Don't send an error message if email is invalid, in case of hacker,
     // he cannot know if the email input is valid
     req.uuser = user;

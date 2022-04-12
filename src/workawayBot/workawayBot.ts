@@ -2,65 +2,58 @@ import { Request, Response } from "express";
 import { Browser, Page } from "puppeteer";
 import { ParsedUrlQuery } from "querystring";
 import { Socket } from "socket.io";
-
 import { File as WorkawayFile } from "../db/models/File";
 import { User } from "../db/models/User";
+import { io } from "../main"; // Get the io instance initialized in main.ts
+import { getCurrentDateTime, range, sleep } from "./utils";
 
-const getCurrentDateTime = require(`${__dirname}/utils`).getCurrentDateTime;
-const sleep = require(`${__dirname}/utils`).sleep;
-// Function to get integers in a range
-import { range } from "./utils";
+// TODO: remove global vars if possible (currently: memory overflow in production)
+
 // To navigate in browser and automation (bot)
 const puppeteer = require("puppeteer");
 
-// Get the io instance initialized in main.ts
-// const io = require("../main").io;
-import { io } from "../main";
 // Browser that puppeteer will use to navigate
-type VariableBrowsersObject = {
+// key corresponds to userId
+type Browsers = {
   [key: string]: Browser;
 };
-const browsers: VariableBrowsersObject = {};
+const browsers: Browsers = {};
+
 // Page opened in browser on which puppeteer will navigate
-type VariablePagesObject = {
+type Pages = {
   [key: string]: Page;
 };
-const pages: VariablePagesObject = {};
+const pages: Pages = {};
 
-export type MemberData = {
-  name: string;
+export type MemberScrapped = {
   age: number;
-  profileHref: string;
   from: string;
   idForMessage: string;
   messageSent: boolean;
+  name: string;
+  profileHref: string;
 };
 // Array of members scrapped in the perimeter around the city passed as parameter
-export type VariableMemebersArraysObject = {
-  [key: string]: MemberData[];
+// key corresponds to userId
+export type MembersScrapped = {
+  [key: string]: MemberScrapped[];
 };
-const membersDataScrapped: VariableMemebersArraysObject = {};
+const membersDataScrapped: MembersScrapped = {};
 
-// Array of log strings
-// let logs = [];
-
-// Boolean variable checked frequently to know if bot should stop
+// Boolean variables checked frequently to know if bot should stop
 // TODO: maybe there is a better way to do this. Maybe with a timer ?
-type VariableBooleansObject = {
+type StopBotOrders = {
   [key: string]: boolean;
 };
-
-const shouldStopBot: VariableBooleansObject = {};
+const shouldStopBot: StopBotOrders = {};
 
 // The user enters a city name or part of on the frontend app,
 // The backend get on the page all city/country couples proposed and send them to the client
-// citySelected is the couple finally selected by the client
-
-type VariableStringsObject = {
+// citySelected is the couple finally selected by the client, on which the bot will click
+type CitiesCountriesSelected = {
   [key: string]: string;
 };
-
-const citySelected: VariableStringsObject = {};
+const citiesCountriesSelected: CitiesCountriesSelected = {};
 
 declare global {
   type SocketQuery = ParsedUrlQuery & {
@@ -69,17 +62,19 @@ declare global {
     };
   };
 }
-
 interface CustomQuery extends ParsedUrlQuery {
   userId?: string;
 }
 
-export const initSocket = async (socket: Socket): Promise<void> => {
+export const initBotSocket = async (socket: Socket): Promise<void> => {
   const userId = (socket.handshake.query as CustomQuery).userId;
 
   if (userId === undefined) {
     throw Error("Error connecting the socket, userId in query is missing");
   }
+
+  // Create a socket room for each user
+  // TODO: is there a better way to do this?
   socket.join(userId);
 
   console.log(
@@ -91,24 +86,18 @@ export const initSocket = async (socket: Socket): Promise<void> => {
     "connection",
     `${getCurrentDateTime()} ➤ CONNECTED TO BACKEND API`
   );
-  if (process.env.SESSION_FILENAME === undefined) {
-    throw new Error("process.env.SESSION_FILENAME is undefined");
-  }
+
   try {
     const resultFile = await WorkawayFile.findOne({
       where: {
         userId: parseInt(userId),
-        name: process.env.SESSION_FILENAME,
+        name: process.env.SESSION_FILENAME || "session.json",
       },
       order: [["createdAt", "DESC"]],
     });
 
-    if (resultFile === null) {
-      throw new Error("session file is null");
-    }
-
     // Send logs when requested
-    socket.emit("botLogs", resultFile.content.logs);
+    socket.emit("botLogs", resultFile?.content.logs || []);
   } catch (e) {
     socket.emit("botLogs", []);
   }
@@ -120,6 +109,7 @@ export const initSocket = async (socket: Socket): Promise<void> => {
 };
 
 const terminateBot = async (userId: number): Promise<void> => {
+  // Reset stop variable
   shouldStopBot[userId] = false;
 
   await closeBrowser(userId);
@@ -133,19 +123,24 @@ const terminateBot = async (userId: number): Promise<void> => {
 };
 
 interface StartBotRequest extends Request {
-  user: User;
-
   body: FormBotParams;
+  user: User;
 }
 // Start bot
 export const startBot = async (
-  req: StartBotRequest,
+  expressRequest: Request,
   res: Response
 ): Promise<void> => {
+  const req = expressRequest as StartBotRequest;
+
   const { uuser: user, body } = req;
+
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(401).send("user is undefined");
+
+    return;
   }
+
   const {
     headless: isHeadless,
     developmentMode: isDevelopmentMode,
@@ -159,8 +154,9 @@ export const startBot = async (
     minimumAge,
     maximumAge,
   } = body;
-  // Reset citySelected, maybe not empty if the bot has already been launched before
-  citySelected[user.id] = "";
+
+  // Clear session params
+  citiesCountriesSelected[user.id] = "";
   shouldStopBot[user.id] = false;
   membersDataScrapped[user.id] = [];
 
@@ -173,6 +169,7 @@ export const startBot = async (
 
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
 
@@ -180,6 +177,7 @@ export const startBot = async (
 
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
 
@@ -189,6 +187,7 @@ export const startBot = async (
 
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
 
@@ -198,18 +197,18 @@ export const startBot = async (
 
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
-    if (process.env.SESSION_FILENAME === undefined) {
-      throw new Error("process.env.SESSION_FILENAME is undefined");
-    }
+
     const resultFile = await WorkawayFile.findOne({
       where: {
         userId: user.id,
-        name: process.env.SESSION_FILENAME,
+        name: process.env.SESSION_FILENAME || "session.json",
       },
       order: [["createdAt", "DESC"]],
     });
+
     if (resultFile === null) {
       throw new Error("result file is null");
     }
@@ -225,6 +224,7 @@ export const startBot = async (
 
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
 
@@ -239,6 +239,7 @@ export const startBot = async (
     });
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
+
       return;
     }
 
@@ -248,11 +249,10 @@ export const startBot = async (
       userId: user.id,
       logString: `${getCurrentDateTime()} ➤ AN ERROR OCCURED : ${err}`,
     });
-    terminateBot(user.id);
+
+    await terminateBot(user.id);
   }
 };
-
-// Save logString in global logs variable and send it to the client
 
 type LogAndEmitToRoomProps = {
   userId: number;
@@ -260,19 +260,18 @@ type LogAndEmitToRoomProps = {
   isSendingMessagesSentCounter?: boolean;
 };
 
-const logAndEmitToRoom = async ({
+// Save logString in global logs variable and send it to the client
+export const logAndEmitToRoom = async ({
   userId,
   logString,
   isSendingMessagesSentCounter = false,
 }: LogAndEmitToRoomProps): Promise<void> => {
-  console.log(logString);
-  if (process.env.SESSION_FILENAME === undefined) {
-    throw new Error("process.env.SESSION_FILENAME is undefined");
-  }
+  console.log(`userId: ${userId}: ${logString}`);
+
   const resultFile = await WorkawayFile.findOne({
     where: {
       userId: userId,
-      name: process.env.SESSION_FILENAME,
+      name: process.env.SESSION_FILENAME || "sessions.json",
     },
     order: [["createdAt", "DESC"]],
   });
@@ -281,16 +280,9 @@ const logAndEmitToRoom = async ({
     throw new Error("result file is null");
   }
 
+  // If isSendingMessagesSentCounter = true, it means the string contains a counter, example: 10/34 messages send
+  // It allows on the client logs to display a counter on the same line
   if (isSendingMessagesSentCounter) {
-    // If isSendingMessagesSentCounter = true, it means the string contains a counter, example: 10/34 messages send
-    // It allows on the client logs to display a counter on the same line
-    // resultFile.content.logs = [
-    //   ...resultFile.content.logs.slice(0, -1),
-    //   logString,
-    // ];
-
-    // await resultFile.save();
-
     await WorkawayFile.update(
       {
         content: {
@@ -303,13 +295,6 @@ const logAndEmitToRoom = async ({
 
     io.to(userId.toString()).emit("botLogsMessageSent", logString);
   } else {
-    if (resultFile.content.logs === undefined) {
-      await WorkawayFile.update(
-        { content: { ...resultFile.content, logs: [] } },
-        { where: { id: resultFile.id } }
-      );
-    }
-    // Regular log
     await WorkawayFile.update(
       {
         content: {
@@ -347,16 +332,13 @@ const saveParamsToFile = async ({
   params,
   userId,
 }: SaveParamsToFileProps): Promise<void> => {
-  if (process.env.SESSION_FILENAME === undefined) {
-    throw new Error("process.env.SESSION_FILENAME is undefined");
-  }
   await WorkawayFile.create({
     userId,
-    name: process.env.SESSION_FILENAME,
+    name: process.env.SESSION_FILENAME || "session.json",
     content: {
       date: new Date(),
       params,
-      logs: ["test", "okk"],
+      logs: [],
       members: [],
       logsCleared: [],
     },
@@ -393,14 +375,17 @@ const openBrowser = async ({
   logString = `${getCurrentDateTime()} ➤ DEVELOPMENT MODE: ${
     isDevelopmentMode ? "ON" : "OFF"
   }`;
+
   await logAndEmitToRoom({ userId, logString });
 };
 
 const openPage = async (userId: number): Promise<void> => {
   pages[userId] = await browsers[userId].newPage();
+
   if (process.env.SITE_URL === undefined) {
     throw new Error("process.env.SITE_URL");
   }
+
   await pages[userId].goto(process.env.SITE_URL);
 
   await logAndEmitToRoom({
@@ -463,7 +448,8 @@ const login = async ({
     });
 
     io.to(userId.toString()).emit("errorLogin");
-    terminateBot(userId);
+
+    await terminateBot(userId);
   }
 };
 
@@ -476,6 +462,7 @@ const moveToMeetupSection = async (userId: number): Promise<void> => {
   if (process.env.MEETUP_SECTION_URL === undefined) {
     throw new Error("process.env.SITE_URL");
   }
+
   // Navigate to the meetup section
   await pages[userId].goto(process.env.MEETUP_SECTION_URL);
 
@@ -504,13 +491,23 @@ const setSearchParams = async ({
 
   await pages[userId].waitForTimeout(2000);
 
-  // TODO: handle case where no cities were found
   // The user enters a city name or part of, received here as param on the frontend app,
   // The backend get on the page all city/country couples (cities variable) proposed and send them to the client
   // citySelected is the couple finally selected by the client
   const cities = await pages[userId].$$eval(".dropdown-item", (nodes) =>
     nodes.map((node) => node.textContent)
   );
+
+  if (cities.length === 0) {
+    await logAndEmitToRoom({
+      userId,
+      logString: `${getCurrentDateTime()} ➤ NO CITIES AVAILABLE`,
+    });
+
+    await terminateBot(userId);
+
+    return;
+  }
 
   await logAndEmitToRoom({
     userId,
@@ -525,24 +522,25 @@ const setSearchParams = async ({
   });
 
   // Wait for the client to choose the city/country couple
-  while (citySelected[userId] === "") {
+  while (citiesCountriesSelected[userId] === "") {
     await sleep(500);
   }
   await pages[userId].waitForTimeout(2000);
 
   // In order workaway app take in account the city choice, it's necessary to click on one of the menu item
   const [location] = await pages[userId].$x(
-    `//a[contains(., '${citySelected[userId]}')]`
+    `//a[contains(., '${citiesCountriesSelected[userId]}')]`
   );
 
-  if (location) {
-    await location.click();
-  }
+  await location.click();
+
   await pages[userId].waitForTimeout(2000);
 
   await logAndEmitToRoom({
     userId,
-    logString: `${getCurrentDateTime()} ➤ CITY SET TO ${citySelected[userId]}`,
+    logString: `${getCurrentDateTime()} ➤ CITY SET TO ${
+      citiesCountriesSelected[userId]
+    }`,
   });
 
   // Change radius detection around current location
@@ -551,6 +549,7 @@ const setSearchParams = async ({
     detectionRadius.toString()
   );
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ DETECTION RADIUS SET TO ${detectionRadius.toString()}km`,
@@ -574,46 +573,42 @@ const scrapMembers = async ({
   resultFile,
 }: ScrapMembersProps): Promise<boolean> => {
   // Get all members profile page url (present on the page)
-  // TODO: check other page if pagination exists (in order to scrap members on the next pages)
-  const profilesHrefs = await page.$$eval("a", (hrefs) =>
-    hrefs
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((a: any) => {
-        return a.href;
-      })
-      .filter((link) => link !== undefined && link.includes("/en/workawayer/"))
+  // TODO: check other pages if pagination exists (in order to scrap members on the next pages)
+  const profilesHrefs: string[] = await page.$$eval(
+    ".listentry-ww-profile-img-wrapper-inner",
+    (elements) =>
+      elements
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((a: any) => {
+          return a.href;
+        })
   );
-
-  // TODO: check why there are duplicate profiles
-  // Remove duplicate using temporary Set
-  const finalProfilesHrefsArray = [...new Set(profilesHrefs)];
 
   // Get all integers in the range
   const ageRange = range({ start: minAge, end: maxAge });
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ TOTAL MEMBERS IN THE AREA: ${
-      finalProfilesHrefsArray.length
+      profilesHrefs.length
     }`,
   });
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ START SCRAPPING (ONLY MEMBERS IN THE AGE RANGE)...`,
   });
 
   // TODO: check if better iterating loop (knowing that there are await in the loop)
-  for (let i = 0; i < finalProfilesHrefsArray.length; i++) {
+  for (let i = 0; i < profilesHrefs.length; i++) {
     if (shouldStopBot[userId]) {
       return true;
     }
 
-    const href = finalProfilesHrefsArray[i];
+    const href = profilesHrefs[i];
 
-    if (href === undefined) {
-      throw Error("member href undefined");
-    }
     // Navigate to profile page
     await page.goto(href);
 
@@ -622,22 +617,27 @@ const scrapMembers = async ({
       return nodes.map((node) => {
         const h2 = node.querySelector("h2");
         const p = node.querySelector("p");
+
         if (h2 === null || p === null) {
           return null;
         }
+
         return h2.textContent === "Age" && p.textContent !== null
           ? parseInt(p.textContent)
           : "";
       });
     });
+
     if (sections === null || sections.length === 0) {
       throw new Error("section null or empty");
     }
+
     const age = sections.filter((e) => typeof e === "number")[0];
+
     if (age === null || age === "") {
-      console.log(sections);
       throw new Error("age is null or undefined or ''");
     }
+
     // Check if members age is in the valid range, if not do nothing
     if (ageRange.includes(age)) {
       // Extract members id. (Usefull to reach the message form url)
@@ -664,7 +664,8 @@ const scrapMembers = async ({
       if (name === undefined || country === undefined) {
         throw new Error("name, age or form is undefined");
       }
-      const test: MemberData = {
+
+      const member: MemberScrapped = {
         name,
         age: age,
         profileHref: href,
@@ -672,9 +673,10 @@ const scrapMembers = async ({
         idForMessage: id,
         messageSent: false,
       };
-      console.log("test push", test);
-      membersDataScrapped[userId].push(test);
-      console.log(membersDataScrapped);
+
+      membersDataScrapped[userId].push(member);
+
+      // TODO: check why this log is not written in the file
       await logAndEmitToRoom({
         userId,
         logString: `${getCurrentDateTime()} ➤ #${i} SCRAPPED`,
@@ -682,18 +684,20 @@ const scrapMembers = async ({
     }
   }
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ ALL MEMBERS HAVE BEEN SCRAPPED`,
   });
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ ${
       membersDataScrapped[userId].length
     } MEMBERS IN THE AGE RANGE`,
   });
-  console.log("before update", membersDataScrapped[userId]);
+
   await WorkawayFile.update(
     {
       content: {
@@ -704,6 +708,7 @@ const scrapMembers = async ({
     { where: { id: resultFile.id } }
   );
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ RESULTS SAVE to ${resultFile.name}`,
@@ -732,6 +737,7 @@ const sendMessageToMembers = async ({
   isDevelopmentMode,
   resultFile,
 }: SendMessageToMembersProps): Promise<boolean> => {
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId,
     logString: `${getCurrentDateTime()} ➤ START SENDING MESSAGES`,
@@ -768,7 +774,6 @@ const sendMessageToMembers = async ({
       membersDataScrapped[userId][i].messageSent = true;
 
       await page.waitForTimeout(1000);
-      console.log("before update", membersDataScrapped[userId]);
 
       await WorkawayFile.update(
         {
@@ -779,13 +784,6 @@ const sendMessageToMembers = async ({
         },
         { where: { id: resultFile.id } }
       );
-      // resultFile.content = {
-      //   ...resultFile.content,
-      //   members: membersDataScrapped[userId],
-      // };
-      // console.log("SAVING4:", resultFile.content);
-
-      // await resultFile.save();
 
       const indexWithOffset = i + 1;
 
@@ -820,17 +818,17 @@ const closeBrowser = async (userId: number): Promise<void> => {
 
 export const clearLogs = async (req: Request, res: Response): Promise<void> => {
   const { uuser: user } = req;
-  console.log(`${getCurrentDateTime()} ➤ LOGS CLEARED`);
+
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(401).send("user is undefined");
+
+    return;
   }
-  if (process.env.SESSION_FILENAME === undefined) {
-    throw new Error("process.env.SESSION_FILENAME is undefined");
-  }
+
   const resultFile = await WorkawayFile.findOne({
     where: {
       userId: user.id,
-      name: process.env.SESSION_FILENAME,
+      name: process.env.SESSION_FILENAME || "session.json",
     },
     order: [["createdAt", "DESC"]],
   });
@@ -849,25 +847,23 @@ export const clearLogs = async (req: Request, res: Response): Promise<void> => {
       },
       { where: { id: resultFile.id } }
     );
-    // resultFile.content.logsCleared = [
-    //   ...resultFile.content.logsCleared,
-    //   ...resultFile.content.logs,
-    // ];
-    // resultFile.content.logs = [];
-    // console.log("SAVING5:", resultFile.content);
-
-    // await resultFile.save();
   }
+
   res.status(200).send("ok");
 };
 
 export const stopBot = async (req: Request, res: Response): Promise<void> => {
   const { uuser: user } = req;
+
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(401).send("user is undefined");
+
+    return;
   }
+
   shouldStopBot[user.id] = true;
 
+  // TODO: check why this log is not written in the file
   await logAndEmitToRoom({
     userId: user.id,
     logString: `${getCurrentDateTime()} ➤ BOT STOPPING...`,
@@ -877,72 +873,20 @@ export const stopBot = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const setCity = async (req: Request, res: Response): Promise<void> => {
-  res.send("ok");
+  const { uuser: user } = req;
+
   if (req.body.city === undefined) {
-    throw Error("city undefined");
-  }
-  if (req.uuser === undefined) {
-    throw new Error("user is undefined");
-  }
-  citySelected[req.uuser.id] = req.body.city;
-};
+    res.status(400).send("city undefined");
 
-export const getFilesInfo = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  if (req.uuser === undefined) {
-    throw new Error("user is undefined");
+    return;
   }
-  const files = await WorkawayFile.findAll({
-    where: { userId: req.uuser.id },
-  });
-  const reducedFiles = files.map((file) => {
-    return {
-      id: file.id,
-      name: file.name,
-      createdAt: file.createdAt,
-      updatedAt: file.updatedAt,
-    };
-  });
-
-  res.send({ files: reducedFiles });
-};
-
-export const deleteFile = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { uuser: user, params } = req;
   if (user === undefined) {
-    throw new Error("user is undefined");
-  }
-  const file = await WorkawayFile.findOne({
-    where: { userId: user.id, id: params.id },
-  });
-  if (file === null) {
-    throw new Error("file is null");
-  }
-  file.destroy();
+    res.status(401).send("user is undefined");
 
-  await logAndEmitToRoom({
-    userId: user.id,
-    logString: `${getCurrentDateTime()} ➤ FILE WELL DELETED`,
-  });
+    return;
+  }
 
   res.send("ok");
-};
 
-export const getFile = async (req: Request, res: Response): Promise<void> => {
-  const { uuser: user, params } = req;
-  if (user === undefined) {
-    throw new Error("user is undefined");
-  }
-  const file = await WorkawayFile.findOne({
-    where: { userId: user.id, id: params.id },
-  });
-  if (file === null) {
-    throw new Error("file is null");
-  }
-  res.json({ file: { name: file.name, content: file.content } });
+  citiesCountriesSelected[user.id] = req.body.city;
 };

@@ -5,7 +5,7 @@ declare global {
       MESSAGE_FORM_URL: string;
       MEETUP_SECTION_URL: string;
       SESSION_FILENAME: string;
-      PORT: number;
+      API_PORT: number;
       DATABASE_DEV_URL: string;
       GOOGLE_CLIENT_SECRET: string;
       GOOGLE_CLIENT_ID: string;

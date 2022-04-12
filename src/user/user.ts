@@ -1,9 +1,12 @@
 import { Request, Response } from "express";
+import { Payment } from "../db/models/Payment";
 import { RolesEnum, User } from "../db/models/User";
-import { sendMail } from "../services/mails";
-import { capitalizeFirstLetter } from "../utils/functions";
-// const User = require("../utils/functions")
-const Payment = require("../db/models").Payment;
+import {
+  sendResetPasswordMail,
+  sendWelcomeCreatedByAdminMail,
+  sendWelcomeMail,
+} from "../services/mails";
+
 // To generate uuids
 const { v4: uuidV4 } = require("uuid");
 
@@ -11,125 +14,17 @@ const { v4: uuidV4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
-// export interface Address {
-//   /**
-//    * The first line of the address. For example, number or street.
-//    * @maxLength 300
-//    */
-//   address_line_1?: string;
-//   /**
-//    * The second line of the address. For example, suite or apartment number.
-//    * @maxLength 300
-//    */
-//   address_line_2?: string;
-//   /** The highest level sub-division in a country, which is usually a province, state, or ISO-3166-2 subdivision. */
-//   admin_area_1?: string;
-//   /** A city, town, or village. Smaller than `admin_area_level_1`. */
-//   admin_area_2?: string;
-//   /**
-//    * The postal code, which is the zip code or equivalent.
-//    * Typically required for countries with a postal code or an equivalent.
-//    */
-//   postal_code?: string;
-//   /** The [two-character ISO 3166-1 code](/docs/integration/direct/rest/country-codes/) that identifies the country or region. */
-//   country_code: string;
-// }
-
-// type PaymentResume = {
-//   createTime: string | undefined;
-//   updateTime: string | undefined;
-//   payer: {
-//     email: string | undefined;
-//     name: string | undefined;
-//     surname: string | undefined;
-//     id: string | undefined;
-//     address: Address | undefined;
-//   };
-//   amount: string | undefined;
-//   currency: string | undefined;
-//   status:
-//     | "COMPLETED"
-//     | "SAVED"
-//     | "APPROVED"
-//     | "VOIDED"
-//     | "PAYER_ACTION_REQUIRED"
-//     | undefined;
-//   merchandEmail: string | undefined;
-//   merchandId: string | undefined;
-//   billingToken?: string | null | undefined;
-//   facilitatorAccessToken: string;
-//   orderID: string;
-//   payerID?: string | null | undefined;
-//   paymentID?: string | null | undefined;
-//   subscriptionID?: string | null | undefined;
-//   authCode?: string | null | undefined;
-// };
-
-// interface CustomParamsDictionary extends core.ParamsDictionary {
-//   id?: string;
-// }
-
-// // Declaring custom request interface
-// declare namespace Express {
-//   export interface Request {
-//     user?: User;
-//     params: CustomParamsDictionary;
-//     body: {
-//       id: number;
-//       name?: string;
-//       email?: string;
-//       role?: "admin" | "classic" | "premium";
-//       paymentResume?: PaymentResume;
-//       currentPassword?: string;
-//       newPassword?: string;
-//       headless?: boolean;
-//       developmentMode?: boolean;
-//       password?: string;
-//       city?: string;
-//       detectionRadius?: number;
-//       messageSubject?: string;
-//       englishMessage?: string;
-//       frenchMessage?: string;
-//       minimumAge?: number;
-//       maximumAge?: number;
-//     };
-//     cookies: { token?: string };
-//   }
-// }
-// export interface Request extends Request {
-//   user?: User;
-//   params: CustomParamsDictionary;
-//   body: {
-//     id: number;
-//     name?: string;
-//     email?: string;
-//     role?: "admin" | "classic" | "premium";
-//     paymentResume?: PaymentResume;
-//     currentPassword?: string;
-//     newPassword?: string;
-//     headless?: boolean;
-//     developmentMode?: boolean;
-//     password?: string;
-//     city?: string;
-//     detectionRadius?: number;
-//     messageSubject?: string;
-//     englishMessage?: string;
-//     frenchMessage?: string;
-//     minimumAge?: number;
-//     maximumAge?: number;
-//   };
-//   cookies: { token?: string };
-// }
-
 // TODO: type Reponse
 
 export const getUser = (req: Request, res: Response): void => {
-  req.body;
-  res.status(200).send({ user: req?.user });
+  const { uuser: user } = req;
+
+  res.send({ user });
 };
 
 export const resetPassword = (req: Request, res: Response): void => {
-  const user = req.uuser;
+  const { uuser: user } = req;
+
   if (user) {
     const randomPassword = Math.random().toString(36).slice(-8);
 
@@ -142,14 +37,10 @@ export const resetPassword = (req: Request, res: Response): void => {
 
           await user.save();
 
-          sendMail({
-            from: "ImLazy app",
-            to: process.env.EMAIL_TEST ?? user.email,
-            subject: "Welcome to ImLazy app!",
-            html: `<p>Hi ${capitalizeFirstLetter(req.body.name)},</p>
-          <p>Here is your new password (don't hesisate to change it on your profile page): ${randomPassword}</p>
-          <p>Enjoy</p>
-          <p>The ImLazy Team</p>`,
+          sendResetPasswordMail({
+            email: user.email,
+            name: user.name,
+            randomPassword,
           });
 
           res.status(200).send();
@@ -159,7 +50,9 @@ export const resetPassword = (req: Request, res: Response): void => {
       }
     );
   } else {
-    res.status(500).send();
+    // Don't send an error to not inform a potential hacker the user doesn't exist
+    // The frontend will display a message like "if user exists, a reset password email has been sent"
+    res.status(200).send();
   }
 };
 
@@ -178,49 +71,53 @@ export const deleteUserById = async (
   res: Response
 ): Promise<void> => {
   const id = req.params.id;
-  if (id === undefined) {
-    throw new Error("id is null");
-  }
+  console.log(id);
   const userToDelete = await User.findOne({ where: { id } });
-
-  if (userToDelete) {
-    userToDelete.destroy();
-    res.status(200).send();
-  } else {
+  console.log(userToDelete);
+  if (userToDelete === null) {
     res.status(400).send("no user to delete");
+
+    return;
   }
+
+  userToDelete.destroy();
+
+  res.send("ok");
 };
 
 export const updateUserById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const email = req.body.email;
-  const name = req.body.name;
-  const role = req.body.role;
+  const { email, name, role } = req.body;
+  const { uuser: user } = req;
 
-  const user = req.uuser;
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(400).send("user is undefined");
+
+    return;
   }
   if (email === undefined) {
-    throw new Error("user is undefined");
+    res.status(400).send("email is undefined");
+
+    return;
   }
   if (name === undefined) {
-    throw new Error("user is undefined");
+    res.status(400).send("name is undefined");
+
+    return;
   }
-  if (role === undefined) {
-    throw new Error("user is undefined");
+  if (role !== undefined) {
+    user.role =
+      role === "admin"
+        ? RolesEnum.ADMIN
+        : role === "premium"
+        ? RolesEnum.PREMIUM
+        : RolesEnum.CLASSIC;
   }
 
   user.email = email;
   user.name = name;
-  user.role =
-    role === "admin"
-      ? RolesEnum.ADMIN
-      : role === "premium"
-      ? RolesEnum.PREMIUM
-      : RolesEnum.CLASSIC;
 
   await user.save();
 
@@ -231,18 +128,24 @@ export const createUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const email = req.body.email;
-  const name = req.body.name;
-  const tempRole = req.body.role;
-  if (tempRole === undefined) {
-    throw new Error("role is undefined");
-  }
+  const { email, name, role: tempRole } = req.body;
+
   if (email === undefined) {
-    throw new Error("email is undefined");
+    res.status(400).send("email is undefined");
+
+    return;
   }
   if (name === undefined) {
-    throw new Error("name is undefined");
+    res.status(400).send("name is undefined");
+
+    return;
   }
+  if (tempRole === undefined) {
+    res.status(400).send("role is undefined");
+
+    return;
+  }
+
   const role =
     tempRole === "admin"
       ? RolesEnum.ADMIN
@@ -266,24 +169,18 @@ export const createUser = async (
           role,
           emailVerificationString,
         });
+
         const finalEmail = process.env.EMAIL_TEST ?? email ?? "";
+
         if (finalEmail === "") {
-          // if (process.env.EMAIL_TEST === undefined && email === undefined) {
           throw new Error("email is undefined");
         }
-        sendMail({
-          from: "ImLazy app",
-          to: finalEmail,
-          subject: "Welcome to ImLazy app!",
-          html: `<p>Welcome ${capitalizeFirstLetter(
-            req.body.name
-          )} on ImLazy app !</p>
-          <p>You'll discover all the lazy ressources available !</p>
-          <p>Last step to verify your account, press <a href="${
-            process.env.API_URL
-          }/verify/${emailVerificationString}">Here</a></p>
-          <p>Enjoy</p>
-          <p>The ImLazy Team</p>`,
+
+        sendWelcomeCreatedByAdminMail({
+          email: finalEmail,
+          name,
+          verificationString: emailVerificationString,
+          randomPassword,
         });
 
         res.status(200).send();
@@ -298,16 +195,21 @@ export const updateUserPasswordById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const user = req.uuser;
+  const { uuser: user } = req;
+
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(401).send("user is undefined");
+
+    return;
   }
+
   bcrypt.compare(
     req.body.currentPassword,
     user.password,
     function (_err: Error, isMatch: boolean) {
       if (!isMatch) {
-        res.status(400).send();
+        res.status(400).send("Incorrect password");
+
         return;
       }
 
@@ -318,6 +220,7 @@ export const updateUserPasswordById = async (
           user.password = password;
 
           user.save();
+
           res.status(200).send();
         }
       );
@@ -329,39 +232,39 @@ export const sendVerificationEmail = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const email = req.body.email;
+  const { email, name } = req.body;
+
   if (email === undefined) {
-    throw new Error("email is undefined");
+    res.send(400).send("email is undefined");
+
+    return;
   }
+
   const emailVerificationString = uuidV4();
 
   try {
     const user = await User.findOne({ where: { email } });
 
     if (user === null) {
-      throw new Error("email is undefined");
+      res.send(400).send("user is undefined");
+
+      return;
     }
+
     user.emailVerificationString = emailVerificationString;
+
     user.save();
 
     const finalEmail = process.env.EMAIL_TEST ?? email ?? "";
+
     if (finalEmail === "") {
-      // if (process.env.EMAIL_TEST === undefined && email === undefined) {
       throw new Error("email is undefined");
     }
-    sendMail({
-      from: "ImLazy app",
-      to: finalEmail,
-      subject: "Welcome to ImLazy app!",
-      html: `<p>Welcome ${capitalizeFirstLetter(
-        req.body.name
-      )} on ImLazy app !</p>
-        <p>You'll discover all the lazy ressources available !</p>
-        <p>Last step to verify your account, press <a href="${
-          process.env.API_URL
-        }/verify/${emailVerificationString}">Here</a></p>
-        <p>Enjoy</p>
-        <p>The ImLazy Team</p>`,
+
+    sendWelcomeMail({
+      email: finalEmail,
+      name,
+      verificationString: emailVerificationString,
     });
 
     res.status(200).send();
@@ -374,16 +277,21 @@ export const savePayment = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const user = req.uuser;
+  const { uuser: user } = req;
+
   if (user === undefined) {
-    throw new Error("user is undefined");
+    res.status(401).send("user is undefined");
+
+    return;
   }
+
   await Payment.create({
     userId: user.id,
     details: req.body.paymentResume,
   });
 
   user.role = RolesEnum.PREMIUM;
+
   user.save();
 
   try {
