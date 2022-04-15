@@ -162,7 +162,14 @@ export const startBot = async (
 
   try {
     res.send("Bot started");
-
+    let used = process.memoryUsage();
+    for (const [key, value] of Object.entries(used)) {
+      console.log(
+        `after bot start: ${key} ${
+          Math.round((value / 1024 / 1024) * 100) / 100
+        } MB`
+      );
+    }
     await saveParamsToFile({ params: body, userId: user.id });
 
     await openBrowser({ userId: user.id, isHeadless, isDevelopmentMode });
@@ -212,6 +219,15 @@ export const startBot = async (
     if (resultFile === null) {
       throw new Error("result file is null");
     }
+    used = process.memoryUsage();
+
+    for (const [key, value] of Object.entries(used)) {
+      console.log(
+        `Before scrap members: ${key} ${
+          Math.round((value / 1024 / 1024) * 100) / 100
+        } MB`
+      );
+    }
     // TODO: there is maybe a better way to do that: interrupt current function StartBot if shouldStopBot variable pass to true in scrapMembers.
     // Same situation for sendMessageToMembers
     shouldStopBot[user.id] = await scrapMembers({
@@ -221,7 +237,15 @@ export const startBot = async (
       maxAge: maximumAge,
       resultFile,
     });
+    used = process.memoryUsage();
 
+    for (const [key, value] of Object.entries(used)) {
+      console.log(
+        `After  scrapping: ${key} ${
+          Math.round((value / 1024 / 1024) * 100) / 100
+        } MB`
+      );
+    }
     if (shouldStopBot[user.id]) {
       await terminateBot(user.id);
 
@@ -244,6 +268,15 @@ export const startBot = async (
     }
 
     await closeBrowser(user.id);
+    used = process.memoryUsage();
+
+    for (const [key, value] of Object.entries(used)) {
+      console.log(
+        `After  bot terminated: ${key} ${
+          Math.round((value / 1024 / 1024) * 100) / 100
+        } MB`
+      );
+    }
   } catch (err) {
     await logAndEmitToRoom({
       userId: user.id,
@@ -681,6 +714,16 @@ const scrapMembers = async ({
         userId,
         logString: `${getCurrentDateTime()} ➤ #${i} SCRAPPED`,
       });
+
+      const used = process.memoryUsage();
+
+      for (const [key, value] of Object.entries(used)) {
+        console.log(
+          `After  scrapped ${i}: ${key} ${
+            Math.round((value / 1024 / 1024) * 100) / 100
+          } MB`
+        );
+      }
     }
   }
 
