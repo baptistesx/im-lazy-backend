@@ -798,45 +798,47 @@ const sendMessageToMembers = async ({
     );
 
     if ((await page.$("#conversationcontainer")) === null) {
-      await page.type("#subject", messageSubject);
+      try {
+        await page.type("#subject", messageSubject);
 
-      // Checking user nationality
-      if (membersDataScrapped[userId][i].from.includes("France")) {
-        await page.type("#message", frenchMessage);
-      } else {
-        await page.type("#message", englishMessage);
-      }
+        // Checking user nationality
+        if (membersDataScrapped[userId][i].from.includes("France")) {
+          await page.type("#message", frenchMessage);
+        } else {
+          await page.type("#message", englishMessage);
+        }
 
-      await page.keyboard.press("Tab");
+        await page.keyboard.press("Tab");
 
-      // Do not send the message for real if developmentMode = true
-      if (!isDevelopmentMode) {
-        await page.keyboard.press("Enter");
-      }
+        // Do not send the message for real if developmentMode = true
+        if (!isDevelopmentMode) {
+          await page.keyboard.press("Enter");
+        }
 
-      membersDataScrapped[userId][i].messageSent = true;
+        membersDataScrapped[userId][i].messageSent = true;
 
-      await page.waitForTimeout(1000);
+        await page.waitForTimeout(6000);
 
-      await WorkawayFile.update(
-        {
-          content: {
-            ...resultFile.content,
-            members: membersDataScrapped[userId],
+        await WorkawayFile.update(
+          {
+            content: {
+              ...resultFile.content,
+              members: membersDataScrapped[userId],
+            },
           },
-        },
-        { where: { id: resultFile.id } }
-      );
+          { where: { id: resultFile.id } }
+        );
 
-      const indexWithOffset = i + 1;
+        const indexWithOffset = i + 1;
 
-      await logAndEmitToRoom({
-        userId,
-        logString: `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
-          membersDataScrapped[userId].length
-        } MESSAGES SENT`,
-        isSendingMessagesSentCounter: true,
-      });
+        await logAndEmitToRoom({
+          userId,
+          logString: `${getCurrentDateTime()} ➤ ${indexWithOffset}/${
+            membersDataScrapped[userId].length
+          } MESSAGES SENT`,
+          isSendingMessagesSentCounter: true,
+        });
+      } catch (e) {}
     }
   }
 
