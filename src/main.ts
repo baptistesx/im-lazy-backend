@@ -8,6 +8,9 @@ import initPassportService from "./services/passport";
 import initVariousMiddlewares from "./services/variousMiddlewares";
 import { initBotSocket } from "./workawayBot/workawayBot";
 
+// const memwatch = require("memwatch");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// memwatch.on('leak', function(info: any) { console.log(info) });
 const express = require("express");
 
 // PassportJs is used for auth middlewares and actions

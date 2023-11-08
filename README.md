@@ -43,8 +43,8 @@ To work locally on macos :
 - install pg admin to navigate Postgres Database server (https://www.pgadmin.org/download/)
 
 - change DATABASE_DEV_URL env var with local username & password
-- ### `sequelize db:create`
-- ### `sequelize db:migrate`
+- ### `npx sequelize db:create`
+- ### `npx sequelize db:migrate`
 
 - # `npm run dev`
 
